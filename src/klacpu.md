@@ -409,11 +409,11 @@ static void emit2(Node p) {
 
     /* --- Address computation for frame-relative access --- */
     case ADDRF+P: {
-        /* Parameter address: FP + offset (params above frame) */
+        /* Parameter address: since params are saved as locals, use local calculation */
         int off = p->syms[0]->x.offset;
-        print("COPY %s O\nADDV %s %s\n",
+        print("COPY %s O\nMINUSV %s %s\n",
             ireg[dst]->x.name, ireg[dst]->x.name,
-            imm(off + framesize_actual + 1));
+            imm(off + 1));
         break;
     }
     case ADDRL+P: {
@@ -772,6 +772,14 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     }
     assert(!caller[i]);
 
+    /* Parameters that are not kept in registers will be saved as locals */
+    for (i = 0; callee[i]; i++) {
+        Symbol p = callee[i];
+        if (p->sclass != REGISTER) {
+            p->sclass = AUTO;
+        }
+    }
+
     /* Generate code */
     offset = 0;
     gencode(caller, callee);
@@ -823,6 +831,8 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
             print("// save arg %d\n", i);
             print("STIDX %s O %s\n", ireg[i]->x.name,
                 imm(-(p->x.offset + 1)));
+            /* Since it's now stored as a local, change class to AUTO */
+            p->sclass = q->sclass = AUTO;
         }
     }
 
