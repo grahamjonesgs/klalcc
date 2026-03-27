@@ -1,0 +1,705 @@
+                              -- // crt0.kla - Runtime startup for compiled C programs
+                              -- //
+                              -- // Usage:
+                              -- //   1. Compile your C file:  build/rcc -target=klacpu myprogram.c > myprogram.kla
+                              -- //   2. Edit the INCLUDE line below to point to your program
+                              -- //   3. Assemble this file (which includes everything)
+                              -- //
+                              -- // Initialises the stack pointer, calls main(), prints the return
+                              -- // value as 8 hex digits via UART, then halts.
+                              -- 
+                              -- _start
+0x00000000: 0000080F 000FFFFF -- SETR P 0xFFFFF
+0x00000002: 000001EF          -- COPY O P
+0x00000003: 0000F013 00000500 -- DELAYV 0x0500
+0x00000005: 00001009 000000BA -- CALL main:
+0x00000007: 0000501C          -- TXR M
+0x00000008: 00005001          -- NEWLINE
+0x00000009: 0000F011          -- HALT
+                              -- 
+                              -- // === Your compiled program ===
+0x0000000A:                   -- print_result:
+0x0000000A: 000070EF          -- MEMSETRR O P
+0x0000000B: 0000085F          -- DECR P
+0x0000000C: 000001EF          -- COPY O P
+0x0000000D: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x0000000F: 00000D0E FFFFFFFF -- STIDX A O -1
+0x00000011: 000001CE          -- COPY M O
+0x00000012: 0000081C 00000002 -- ADDV M 2
+0x00000014: 0000710C          -- MEMREADRR A M
+0x00000015: 00001009 00000314 -- CALL _uart_tx_hex:
+0x00000017: 00001009 00000316 -- CALL _uart_newline:
+0x00000019:                   -- print_result_L_1:
+0x00000019: 000001FE          -- COPY P O
+0x0000001A: 0000084F          -- INCR P
+0x0000001B: 000071EF          -- MEMREADRR O P
+0x0000001C: 00001012          -- RET
+0x0000001D:                   -- factorial:
+0x0000001D: 000070EF          -- MEMSETRR O P
+0x0000001E: 0000085F          -- DECR P
+0x0000001F: 000001EF          -- COPY O P
+0x00000020: 0000082F 00000002 -- MINUSV P 2
+0x00000022: 00000D6E FFFFFFFF -- STIDX G O -1
+0x00000024: 00000D7E FFFFFFFE -- STIDX H O -2
+0x00000026: 00000806 00000001 -- SETR G 1
+0x00000028: 00000807 00000002 -- SETR H 2
+0x0000002A: 00001000 00000030 -- JMP factorial_L_6:
+0x0000002C:                   -- factorial_L_3:
+0x0000002C: 00008067          -- MULRR G H
+0x0000002D:                   -- factorial_L_4:
+0x0000002D: 0000080C 00000001 -- SETR M 1
+0x0000002F: 0000067C          -- ADDRR H M
+0x00000030:                   -- factorial_L_6:
+0x00000030: 00000570          -- CMPRR H A
+0x00000031: 00001016 0000002C -- JMPLE factorial_L_3:
+0x00000033: 000001C6          -- COPY M G
+0x00000034:                   -- factorial_L_2:
+0x00000034: 00000C6E FFFFFFFF -- LDIDX G O -1
+0x00000036: 00000C7E FFFFFFFE -- LDIDX H O -2
+0x00000038: 000001FE          -- COPY P O
+0x00000039: 0000084F          -- INCR P
+0x0000003A: 000071EF          -- MEMREADRR O P
+0x0000003B: 00001012          -- RET
+0x0000003C:                   -- gcd:
+0x0000003C: 000070EF          -- MEMSETRR O P
+0x0000003D: 0000085F          -- DECR P
+0x0000003E: 000001EF          -- COPY O P
+0x0000003F: 0000082F 00000001 -- MINUSV P 1
+0x00000041: 00000D7E FFFFFFFF -- STIDX H O -1
+0x00000043: 00001000 0000004A -- JMP gcd_L_9:
+0x00000045:                   -- gcd_L_8:
+0x00000045: 00000171          -- COPY H B
+0x00000046: 000001D1          -- COPY N B
+0x00000047: 00000110          -- COPY B A
+0x00000048: 0000861D          -- MODRR B N
+0x00000049: 00000107          -- COPY A H
+0x0000004A:                   -- gcd_L_9:
+0x0000004A: 0000080C 00000000 -- SETR M 0
+0x0000004C: 0000051C          -- CMPRR B M
+0x0000004D: 00001004 00000045 -- JMPNE gcd_L_8:
+0x0000004F: 000001C0          -- COPY M A
+0x00000050:                   -- gcd_L_7:
+0x00000050: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x00000052: 000001FE          -- COPY P O
+0x00000053: 0000084F          -- INCR P
+0x00000054: 000071EF          -- MEMREADRR O P
+0x00000055: 00001012          -- RET
+0x00000056:                   -- fibonacci:
+0x00000056: 000070EF          -- MEMSETRR O P
+0x00000057: 0000085F          -- DECR P
+0x00000058: 000001EF          -- COPY O P
+0x00000059: 0000082F 00000004 -- MINUSV P 4
+0x0000005B: 00000D4E FFFFFFFF -- STIDX E O -1
+0x0000005D: 00000D5E FFFFFFFE -- STIDX F O -2
+0x0000005F: 00000D6E FFFFFFFD -- STIDX G O -3
+0x00000061: 00000D7E FFFFFFFC -- STIDX H O -4
+0x00000063: 0000080C 00000000 -- SETR M 0
+0x00000065: 0000015C          -- COPY F M
+0x00000066: 00000807 00000001 -- SETR H 1
+0x00000068: 0000016C          -- COPY G M
+0x00000069: 00001000 00000072 -- JMP fibonacci_L_15:
+0x0000006B:                   -- fibonacci_L_12:
+0x0000006B: 00000145          -- COPY E F
+0x0000006C: 00000647          -- ADDRR E H
+0x0000006D: 00000157          -- COPY F H
+0x0000006E: 00000174          -- COPY H E
+0x0000006F:                   -- fibonacci_L_13:
+0x0000006F: 0000080C 00000001 -- SETR M 1
+0x00000071: 0000066C          -- ADDRR G M
+0x00000072:                   -- fibonacci_L_15:
+0x00000072: 00000560          -- CMPRR G A
+0x00000073: 00001015 0000006B -- JMPLT fibonacci_L_12:
+0x00000075: 000001C5          -- COPY M F
+0x00000076:                   -- fibonacci_L_11:
+0x00000076: 00000C4E FFFFFFFF -- LDIDX E O -1
+0x00000078: 00000C5E FFFFFFFE -- LDIDX F O -2
+0x0000007A: 00000C6E FFFFFFFD -- LDIDX G O -3
+0x0000007C: 00000C7E FFFFFFFC -- LDIDX H O -4
+0x0000007E: 000001FE          -- COPY P O
+0x0000007F: 0000084F          -- INCR P
+0x00000080: 000071EF          -- MEMREADRR O P
+0x00000081: 00001012          -- RET
+0x00000082:                   -- is_prime:
+0x00000082: 000070EF          -- MEMSETRR O P
+0x00000083: 0000085F          -- DECR P
+0x00000084: 000001EF          -- COPY O P
+0x00000085: 0000082F 00000001 -- MINUSV P 1
+0x00000087: 00000D7E FFFFFFFF -- STIDX H O -1
+0x00000089: 0000080C 00000001 -- SETR M 1
+0x0000008B: 0000050C          -- CMPRR A M
+0x0000008C: 00001017 00000092 -- JMPGT is_prime_L_17:
+0x0000008E: 0000080C 00000000 -- SETR M 0
+0x00000090: 00001000 000000B4 -- JMP is_prime_L_16:
+0x00000092:                   -- is_prime_L_17:
+0x00000092: 0000080C 00000003 -- SETR M 3
+0x00000094: 0000050C          -- CMPRR A M
+0x00000095: 00001017 0000009B -- JMPGT is_prime_L_19:
+0x00000097: 0000080C 00000001 -- SETR M 1
+0x00000099: 00001000 000000B4 -- JMP is_prime_L_16:
+0x0000009B:                   -- is_prime_L_19:
+0x0000009B: 00000807 00000002 -- SETR H 2
+0x0000009D: 00001000 000000AD -- JMP is_prime_L_22:
+0x0000009F:                   -- is_prime_L_21:
+0x0000009F: 000001C0          -- COPY M A
+0x000000A0: 000086C7          -- MODRR M H
+0x000000A1: 0000080B 00000000 -- SETR L 0
+0x000000A3: 000005CB          -- CMPRR M L
+0x000000A4: 00001004 000000AA -- JMPNE is_prime_L_24:
+0x000000A6: 0000080C 00000000 -- SETR M 0
+0x000000A8: 00001000 000000B4 -- JMP is_prime_L_16:
+0x000000AA:                   -- is_prime_L_24:
+0x000000AA: 0000080C 00000001 -- SETR M 1
+0x000000AC: 0000067C          -- ADDRR H M
+0x000000AD:                   -- is_prime_L_22:
+0x000000AD: 000001C7          -- COPY M H
+0x000000AE: 000080C7          -- MULRR M H
+0x000000AF: 000005C0          -- CMPRR M A
+0x000000B0: 00001016 0000009F -- JMPLE is_prime_L_21:
+0x000000B2: 0000080C 00000001 -- SETR M 1
+0x000000B4:                   -- is_prime_L_16:
+0x000000B4: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x000000B6: 000001FE          -- COPY P O
+0x000000B7: 0000084F          -- INCR P
+0x000000B8: 000071EF          -- MEMREADRR O P
+0x000000B9: 00001012          -- RET
+0x000000BA:                   -- main:
+0x000000BA: 000070EF          -- MEMSETRR O P
+0x000000BB: 0000085F          -- DECR P
+0x000000BC: 000001EF          -- COPY O P
+0x000000BD: 0000082F 00000005 -- MINUSV P 5
+0x000000BF: 00000D5E FFFFFFFF -- STIDX F O -1
+0x000000C1: 00000D6E FFFFFFFE -- STIDX G O -2
+0x000000C3: 00000D7E FFFFFFFD -- STIDX H O -3
+0x000000C5: 00000800 0000002A -- SETR A 42
+0x000000C7: 00001009 0000000A -- CALL print_result:
+0x000000C9: 00000800 00000005 -- SETR A 5
+0x000000CB: 00001009 0000001D -- CALL factorial:
+0x000000CD: 0000010C          -- COPY A M
+0x000000CE: 00001009 0000000A -- CALL print_result:
+0x000000D0: 00000800 0000000C -- SETR A 12
+0x000000D2: 00001009 0000001D -- CALL factorial:
+0x000000D4: 0000010C          -- COPY A M
+0x000000D5: 00001009 0000000A -- CALL print_result:
+0x000000D7: 0000080C 000000FC -- SETR M 252
+0x000000D9: 0000010C          -- COPY A M
+0x000000DA: 00000801 00000069 -- SETR B 105
+0x000000DC: 00001009 0000003C -- CALL gcd:
+0x000000DE: 0000010C          -- COPY A M
+0x000000DF: 00001009 0000000A -- CALL print_result:
+0x000000E1: 00000800 00000009 -- SETR A 9
+0x000000E3: 00001009 00000056 -- CALL fibonacci:
+0x000000E5: 0000010C          -- COPY A M
+0x000000E6: 00001009 0000000A -- CALL print_result:
+0x000000E8: 0000080C 00000000 -- SETR M 0
+0x000000EA: 0000016C          -- COPY G M
+0x000000EB: 0000015C          -- COPY F M
+0x000000EC: 00000807 00000002 -- SETR H 2
+0x000000EE:                   -- main_L_27:
+0x000000EE: 00000107          -- COPY A H
+0x000000EF: 00001009 00000082 -- CALL is_prime:
+0x000000F1: 0000080B 00000000 -- SETR L 0
+0x000000F3: 000005CB          -- CMPRR M L
+0x000000F4: 00001003 000000FA -- JMPE main_L_31:
+0x000000F6: 0000080C 00000001 -- SETR M 1
+0x000000F8: 0000066C          -- ADDRR G M
+0x000000F9: 00000157          -- COPY F H
+0x000000FA:                   -- main_L_31:
+0x000000FA:                   -- main_L_28:
+0x000000FA: 0000080C 00000001 -- SETR M 1
+0x000000FC: 0000067C          -- ADDRR H M
+0x000000FD: 0000080C 00000014 -- SETR M 20
+0x000000FF: 0000057C          -- CMPRR H M
+0x00000100: 00001016 000000EE -- JMPLE main_L_27:
+0x00000102: 00000106          -- COPY A G
+0x00000103: 00001009 0000000A -- CALL print_result:
+0x00000105: 00000105          -- COPY A F
+0x00000106: 00001009 0000000A -- CALL print_result:
+0x00000108: 0000080C 0000002A -- SETR M 42
+0x0000010A: 0000080B 00000078 -- SETR L 120
+0x0000010C: 000006CB          -- ADDRR M L
+0x0000010D: 0000080B 00000006 -- SETR L 6
+0x0000010F: 0000010C          -- COPY A M
+0x00000110: 0000060B          -- ADDRR A L
+0x00000111: 00001009 0000000A -- CALL print_result:
+0x00000113: 0000080C 00000000 -- SETR M 0
+0x00000115:                   -- main_L_26:
+0x00000115: 00000C5E FFFFFFFF -- LDIDX F O -1
+0x00000117: 00000C6E FFFFFFFE -- LDIDX G O -2
+0x00000119: 00000C7E FFFFFFFD -- LDIDX H O -3
+0x0000011B: 000001FE          -- COPY P O
+0x0000011C: 0000084F          -- INCR P
+0x0000011D: 000071EF          -- MEMREADRR O P
+0x0000011E: 00001012          -- RET
+                              -- 
+                              -- // === C library and UART stubs ===
+0x0000011F:                   -- putchar:
+0x0000011F: 000070EF          -- MEMSETRR O P
+0x00000120: 0000085F          -- DECR P
+0x00000121: 000001EF          -- COPY O P
+0x00000122: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x00000124: 00000D0E FFFFFFFF -- STIDX A O -1
+0x00000126: 000001CE          -- COPY M O
+0x00000127: 0000081C 00000002 -- ADDV M 2
+0x00000129: 0000710C          -- MEMREADRR A M
+0x0000012A: 00001009 00000318 -- CALL _uart_tx_char:
+0x0000012C:                   -- putchar_L_1:
+0x0000012C: 000001FE          -- COPY P O
+0x0000012D: 0000084F          -- INCR P
+0x0000012E: 000071EF          -- MEMREADRR O P
+0x0000012F: 00001012          -- RET
+0x00000130:                   -- puts:
+0x00000130: 000070EF          -- MEMSETRR O P
+0x00000131: 0000085F          -- DECR P
+0x00000132: 000001EF          -- COPY O P
+0x00000133: 0000082F 00000002 -- MINUSV P 2
+0x00000135: 00000D7E FFFFFFFF -- STIDX H O -1
+0x00000137: 000001CE          -- COPY M O
+0x00000138: 0000081C 00000003 -- ADDV M 3
+0x0000013A: 0000717C          -- MEMREADRR H M
+0x0000013B: 00001000 00000143 -- JMP puts_L_4:
+0x0000013D:                   -- puts_L_3:
+0x0000013D: 00007107          -- MEMREADRR A H
+0x0000013E: 00001009 0000011F -- CALL putchar:
+0x00000140: 0000080C 00000001 -- SETR M 1
+0x00000142: 0000067C          -- ADDRR H M
+0x00000143:                   -- puts_L_4:
+0x00000143: 000071C7          -- MEMREADRR M H
+0x00000144: 0000080B 00000000 -- SETR L 0
+0x00000146: 000005CB          -- CMPRR M L
+0x00000147: 00001004 0000013D -- JMPNE puts_L_3:
+0x00000149: 00000800 0000000A -- SETR A 10
+0x0000014B: 00001009 0000011F -- CALL putchar:
+0x0000014D:                   -- puts_L_2:
+0x0000014D: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x0000014F: 000001FE          -- COPY P O
+0x00000150: 0000084F          -- INCR P
+0x00000151: 000071EF          -- MEMREADRR O P
+0x00000152: 00001012          -- RET
+0x00000153:                   -- print_str:
+0x00000153: 000070EF          -- MEMSETRR O P
+0x00000154: 0000085F          -- DECR P
+0x00000155: 000001EF          -- COPY O P
+0x00000156: 0000082F 00000002 -- MINUSV P 2
+0x00000158: 00000D7E FFFFFFFF -- STIDX H O -1
+0x0000015A: 000001CE          -- COPY M O
+0x0000015B: 0000081C 00000003 -- ADDV M 3
+0x0000015D: 0000717C          -- MEMREADRR H M
+0x0000015E: 00001000 00000166 -- JMP print_str_L_8:
+0x00000160:                   -- print_str_L_7:
+0x00000160: 00007107          -- MEMREADRR A H
+0x00000161: 00001009 0000011F -- CALL putchar:
+0x00000163: 0000080C 00000001 -- SETR M 1
+0x00000165: 0000067C          -- ADDRR H M
+0x00000166:                   -- print_str_L_8:
+0x00000166: 000071C7          -- MEMREADRR M H
+0x00000167: 0000080B 00000000 -- SETR L 0
+0x00000169: 000005CB          -- CMPRR M L
+0x0000016A: 00001004 00000160 -- JMPNE print_str_L_7:
+0x0000016C:                   -- print_str_L_6:
+0x0000016C: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x0000016E: 000001FE          -- COPY P O
+0x0000016F: 0000084F          -- INCR P
+0x00000170: 000071EF          -- MEMREADRR O P
+0x00000171: 00001012          -- RET
+0x00000172:                   -- print_unsigned:
+0x00000172: 000070EF          -- MEMSETRR O P
+0x00000173: 0000085F          -- DECR P
+0x00000174: 000001EF          -- COPY O P
+0x00000175: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x00000177: 00000D0E FFFFFFFF -- STIDX A O -1
+0x00000179: 000001CE          -- COPY M O
+0x0000017A: 0000081C 00000002 -- ADDV M 2
+0x0000017C: 000071CC          -- MEMREADRR M M
+0x0000017D: 0000080B 0000000A -- SETR L 10
+0x0000017F: 000094CB          -- CMPULTRR M L
+0x00000180: 00001003 0000018C -- JMPE print_unsigned_L_11:
+0x00000182: 000001CE          -- COPY M O
+0x00000183: 0000081C 00000002 -- ADDV M 2
+0x00000185: 000071CC          -- MEMREADRR M M
+0x00000186: 0000080B 0000000A -- SETR L 10
+0x00000188: 0000010C          -- COPY A M
+0x00000189: 0000850B          -- DIVURR A L
+0x0000018A: 00001009 00000172 -- CALL print_unsigned:
+0x0000018C:                   -- print_unsigned_L_11:
+0x0000018C: 000001CE          -- COPY M O
+0x0000018D: 0000081C 00000002 -- ADDV M 2
+0x0000018F: 000071CC          -- MEMREADRR M M
+0x00000190: 0000080B 0000000A -- SETR L 10
+0x00000192: 000087CB          -- MODURR M L
+0x00000193: 0000080B 00000030 -- SETR L 48
+0x00000195: 000006CB          -- ADDRR M L
+0x00000196: 0000010C          -- COPY A M
+0x00000197: 00001009 0000011F -- CALL putchar:
+0x00000199:                   -- print_unsigned_L_10:
+0x00000199: 000001FE          -- COPY P O
+0x0000019A: 0000084F          -- INCR P
+0x0000019B: 000071EF          -- MEMREADRR O P
+0x0000019C: 00001012          -- RET
+0x0000019D:                   -- print_int:
+0x0000019D: 000070EF          -- MEMSETRR O P
+0x0000019E: 0000085F          -- DECR P
+0x0000019F: 000001EF          -- COPY O P
+0x000001A0: 0000082F 00000003 -- MINUSV P 3
+0x000001A2: 00000D7E FFFFFFFF -- STIDX H O -1
+0x000001A4: 0000080C 00000000 -- SETR M 0
+0x000001A6: 0000057C          -- CMPRR H M
+0x000001A7: 00001018 000001B4 -- JMPGE print_int_L_14:
+0x000001A9: 00000800 0000002D -- SETR A 45
+0x000001AB: 00001009 0000011F -- CALL putchar:
+0x000001AD: 00000107          -- COPY A H
+0x000001AE: 000008A0          -- NEGR A
+0x000001AF: 00000117          -- COPY B H
+0x000001B0: 00001009 000001BD -- CALL _print_neg:
+0x000001B2: 00001000 000001B7 -- JMP print_int_L_13:
+0x000001B4:                   -- print_int_L_14:
+0x000001B4: 00000107          -- COPY A H
+0x000001B5: 00001009 00000172 -- CALL print_unsigned:
+0x000001B7:                   -- print_int_L_13:
+0x000001B7: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x000001B9: 000001FE          -- COPY P O
+0x000001BA: 0000084F          -- INCR P
+0x000001BB: 000071EF          -- MEMREADRR O P
+0x000001BC: 00001012          -- RET
+0x000001BD:                   -- _print_neg:
+0x000001BD: 000070EF          -- MEMSETRR O P
+0x000001BE: 0000085F          -- DECR P
+0x000001BF: 000001EF          -- COPY O P
+0x000001C0: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x000001C2: 00000D0E FFFFFFFF -- STIDX A O -1
+                              -- // save arg 1
+0x000001C4: 00000D1E FFFFFFFE -- STIDX B O -2
+0x000001C6: 000001CE          -- COPY M O
+0x000001C7: 0000081C 00000002 -- ADDV M 2
+0x000001C9: 000071CC          -- MEMREADRR M M
+0x000001CA: 0000080B 00000000 -- SETR L 0
+0x000001CC: 000005CB          -- CMPRR M L
+0x000001CD: 00001018 000001F9 -- JMPGE _print_neg_L_17:
+0x000001CF: 00000800 00000032 -- SETR A 50
+0x000001D1: 00001009 0000011F -- CALL putchar:
+0x000001D3: 00000800 00000031 -- SETR A 49
+0x000001D5: 00001009 0000011F -- CALL putchar:
+0x000001D7: 00000800 00000034 -- SETR A 52
+0x000001D9: 00001009 0000011F -- CALL putchar:
+0x000001DB: 00000800 00000037 -- SETR A 55
+0x000001DD: 00001009 0000011F -- CALL putchar:
+0x000001DF: 00000800 00000034 -- SETR A 52
+0x000001E1: 00001009 0000011F -- CALL putchar:
+0x000001E3: 00000800 00000038 -- SETR A 56
+0x000001E5: 00001009 0000011F -- CALL putchar:
+0x000001E7: 00000800 00000033 -- SETR A 51
+0x000001E9: 00001009 0000011F -- CALL putchar:
+0x000001EB: 00000800 00000036 -- SETR A 54
+0x000001ED: 00001009 0000011F -- CALL putchar:
+0x000001EF: 00000800 00000034 -- SETR A 52
+0x000001F1: 00001009 0000011F -- CALL putchar:
+0x000001F3: 00000800 00000038 -- SETR A 56
+0x000001F5: 00001009 0000011F -- CALL putchar:
+0x000001F7: 00001000 00000200 -- JMP _print_neg_L_18:
+0x000001F9:                   -- _print_neg_L_17:
+0x000001F9: 000001CE          -- COPY M O
+0x000001FA: 0000081C 00000002 -- ADDV M 2
+0x000001FC: 000071CC          -- MEMREADRR M M
+0x000001FD: 0000010C          -- COPY A M
+0x000001FE: 00001009 00000172 -- CALL print_unsigned:
+0x00000200:                   -- _print_neg_L_18:
+0x00000200:                   -- _print_neg_L_16:
+0x00000200: 000001FE          -- COPY P O
+0x00000201: 0000084F          -- INCR P
+0x00000202: 000071EF          -- MEMREADRR O P
+0x00000203: 00001012          -- RET
+0x00000204:                   -- print_hex:
+0x00000204: 000070EF          -- MEMSETRR O P
+0x00000205: 0000085F          -- DECR P
+0x00000206: 000001EF          -- COPY O P
+0x00000207: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x00000209: 00000D0E FFFFFFFF -- STIDX A O -1
+0x0000020B: 000001CE          -- COPY M O
+0x0000020C: 0000081C 00000002 -- ADDV M 2
+0x0000020E: 0000710C          -- MEMREADRR A M
+0x0000020F: 00001009 00000314 -- CALL _uart_tx_hex:
+0x00000211:                   -- print_hex_L_19:
+0x00000211: 000001FE          -- COPY P O
+0x00000212: 0000084F          -- INCR P
+0x00000213: 000071EF          -- MEMREADRR O P
+0x00000214: 00001012          -- RET
+0x00000215:                   -- print_hex_prefix:
+0x00000215: 000070EF          -- MEMSETRR O P
+0x00000216: 0000085F          -- DECR P
+0x00000217: 000001EF          -- COPY O P
+0x00000218: 0000082F 00000001 -- MINUSV P 1
+                              -- // save arg 0
+0x0000021A: 00000D0E FFFFFFFF -- STIDX A O -1
+0x0000021C: 00000800 00000030 -- SETR A 48
+0x0000021E: 00001009 0000011F -- CALL putchar:
+0x00000220: 00000800 00000078 -- SETR A 120
+0x00000222: 00001009 0000011F -- CALL putchar:
+0x00000224: 000001CE          -- COPY M O
+0x00000225: 0000081C 00000002 -- ADDV M 2
+0x00000227: 0000710C          -- MEMREADRR A M
+0x00000228: 00001009 00000314 -- CALL _uart_tx_hex:
+0x0000022A:                   -- print_hex_prefix_L_20:
+0x0000022A: 000001FE          -- COPY P O
+0x0000022B: 0000084F          -- INCR P
+0x0000022C: 000071EF          -- MEMREADRR O P
+0x0000022D: 00001012          -- RET
+0x0000022E:                   -- newline:
+0x0000022E: 000070EF          -- MEMSETRR O P
+0x0000022F: 0000085F          -- DECR P
+0x00000230: 000001EF          -- COPY O P
+0x00000231: 00001009 00000316 -- CALL _uart_newline:
+0x00000233:                   -- newline_L_21:
+0x00000233: 000001FE          -- COPY P O
+0x00000234: 0000084F          -- INCR P
+0x00000235: 000071EF          -- MEMREADRR O P
+0x00000236: 00001012          -- RET
+0x00000237:                   -- strlen:
+0x00000237: 000070EF          -- MEMSETRR O P
+0x00000238: 0000085F          -- DECR P
+0x00000239: 000001EF          -- COPY O P
+0x0000023A: 0000082F 00000001 -- MINUSV P 1
+0x0000023C: 00000D7E FFFFFFFF -- STIDX H O -1
+0x0000023E: 00000807 00000000 -- SETR H 0
+0x00000240: 00001000 00000248 -- JMP strlen_L_24:
+0x00000242:                   -- strlen_L_23:
+0x00000242: 0000080C 00000001 -- SETR M 1
+0x00000244: 0000067C          -- ADDRR H M
+0x00000245: 0000080C 00000001 -- SETR M 1
+0x00000247: 0000060C          -- ADDRR A M
+0x00000248:                   -- strlen_L_24:
+0x00000248: 000071C0          -- MEMREADRR M A
+0x00000249: 0000080B 00000000 -- SETR L 0
+0x0000024B: 000005CB          -- CMPRR M L
+0x0000024C: 00001004 00000242 -- JMPNE strlen_L_23:
+0x0000024E: 000001C7          -- COPY M H
+0x0000024F:                   -- strlen_L_22:
+0x0000024F: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x00000251: 000001FE          -- COPY P O
+0x00000252: 0000084F          -- INCR P
+0x00000253: 000071EF          -- MEMREADRR O P
+0x00000254: 00001012          -- RET
+0x00000255:                   -- strcmp:
+0x00000255: 000070EF          -- MEMSETRR O P
+0x00000256: 0000085F          -- DECR P
+0x00000257: 000001EF          -- COPY O P
+0x00000258: 00001000 0000025E -- JMP strcmp_L_28:
+0x0000025A:                   -- strcmp_L_27:
+0x0000025A: 0000080C 00000001 -- SETR M 1
+0x0000025C: 0000060C          -- ADDRR A M
+0x0000025D: 0000061C          -- ADDRR B M
+0x0000025E:                   -- strcmp_L_28:
+0x0000025E: 000071C0          -- MEMREADRR M A
+0x0000025F: 0000080B 00000000 -- SETR L 0
+0x00000261: 000005CB          -- CMPRR M L
+0x00000262: 00001003 00000268 -- JMPE strcmp_L_30:
+0x00000264: 000071B1          -- MEMREADRR L B
+0x00000265: 000005CB          -- CMPRR M L
+0x00000266: 00001003 0000025A -- JMPE strcmp_L_27:
+0x00000268:                   -- strcmp_L_30:
+0x00000268: 000071C0          -- MEMREADRR M A
+0x00000269: 000071B1          -- MEMREADRR L B
+0x0000026A: 000007CB          -- MINUSRR M L
+0x0000026B:                   -- strcmp_L_26:
+0x0000026B: 000001FE          -- COPY P O
+0x0000026C: 0000084F          -- INCR P
+0x0000026D: 000071EF          -- MEMREADRR O P
+0x0000026E: 00001012          -- RET
+0x0000026F:                   -- strcpy:
+0x0000026F: 000070EF          -- MEMSETRR O P
+0x00000270: 0000085F          -- DECR P
+0x00000271: 000001EF          -- COPY O P
+0x00000272: 0000082F 00000001 -- MINUSV P 1
+0x00000274: 000001CE          -- COPY M O
+0x00000275: 0000082C 00000000 -- MINUSV M 0
+0x00000277: 0000700C          -- MEMSETRR A M
+0x00000278: 00001000 00000280 -- JMP strcpy_L_33:
+0x0000027A:                   -- strcpy_L_32:
+0x0000027A: 000071C1          -- MEMREADRR M B
+0x0000027B: 000070C0          -- MEMSETRR M A
+0x0000027C: 0000080C 00000001 -- SETR M 1
+0x0000027E: 0000060C          -- ADDRR A M
+0x0000027F: 0000061C          -- ADDRR B M
+0x00000280:                   -- strcpy_L_33:
+0x00000280: 000071C1          -- MEMREADRR M B
+0x00000281: 0000080B 00000000 -- SETR L 0
+0x00000283: 000005CB          -- CMPRR M L
+0x00000284: 00001004 0000027A -- JMPNE strcpy_L_32:
+0x00000286: 0000080C 00000000 -- SETR M 0
+0x00000288: 000070C0          -- MEMSETRR M A
+0x00000289: 000001CE          -- COPY M O
+0x0000028A: 0000082C 00000000 -- MINUSV M 0
+0x0000028C: 000071CC          -- MEMREADRR M M
+0x0000028D:                   -- strcpy_L_31:
+0x0000028D: 000001FE          -- COPY P O
+0x0000028E: 0000084F          -- INCR P
+0x0000028F: 000071EF          -- MEMREADRR O P
+0x00000290: 00001012          -- RET
+0x00000291:                   -- memset:
+0x00000291: 000070EF          -- MEMSETRR O P
+0x00000292: 0000085F          -- DECR P
+0x00000293: 000001EF          -- COPY O P
+0x00000294: 0000082F 00000001 -- MINUSV P 1
+0x00000296: 00000D7E FFFFFFFF -- STIDX H O -1
+0x00000298: 00000170          -- COPY H A
+0x00000299: 00001000 000002A2 -- JMP memset_L_37:
+0x0000029B:                   -- memset_L_36:
+0x0000029B: 00007017          -- MEMSETRR B H
+0x0000029C: 0000080C 00000001 -- SETR M 1
+0x0000029E: 0000067C          -- ADDRR H M
+0x0000029F: 0000080C 00000001 -- SETR M 1
+0x000002A1: 0000072C          -- MINUSRR C M
+0x000002A2:                   -- memset_L_37:
+0x000002A2: 0000080C 00000000 -- SETR M 0
+0x000002A4: 0000052C          -- CMPRR C M
+0x000002A5: 00001017 0000029B -- JMPGT memset_L_36:
+0x000002A7: 000001C0          -- COPY M A
+0x000002A8:                   -- memset_L_35:
+0x000002A8: 00000C7E FFFFFFFF -- LDIDX H O -1
+0x000002AA: 000001FE          -- COPY P O
+0x000002AB: 0000084F          -- INCR P
+0x000002AC: 000071EF          -- MEMREADRR O P
+0x000002AD: 00001012          -- RET
+0x000002AE:                   -- memcpy:
+0x000002AE: 000070EF          -- MEMSETRR O P
+0x000002AF: 0000085F          -- DECR P
+0x000002B0: 000001EF          -- COPY O P
+0x000002B1: 0000082F 00000002 -- MINUSV P 2
+0x000002B3: 00000D6E FFFFFFFF -- STIDX G O -1
+0x000002B5: 00000D7E FFFFFFFE -- STIDX H O -2
+0x000002B7: 00000170          -- COPY H A
+0x000002B8: 00000161          -- COPY G B
+0x000002B9: 00001000 000002C4 -- JMP memcpy_L_41:
+0x000002BB:                   -- memcpy_L_40:
+0x000002BB: 000071C6          -- MEMREADRR M G
+0x000002BC: 000070C7          -- MEMSETRR M H
+0x000002BD: 0000080C 00000001 -- SETR M 1
+0x000002BF: 0000067C          -- ADDRR H M
+0x000002C0: 0000066C          -- ADDRR G M
+0x000002C1: 0000080C 00000001 -- SETR M 1
+0x000002C3: 0000072C          -- MINUSRR C M
+0x000002C4:                   -- memcpy_L_41:
+0x000002C4: 0000080C 00000000 -- SETR M 0
+0x000002C6: 0000052C          -- CMPRR C M
+0x000002C7: 00001017 000002BB -- JMPGT memcpy_L_40:
+0x000002C9: 000001C0          -- COPY M A
+0x000002CA:                   -- memcpy_L_39:
+0x000002CA: 00000C6E FFFFFFFF -- LDIDX G O -1
+0x000002CC: 00000C7E FFFFFFFE -- LDIDX H O -2
+0x000002CE: 000001FE          -- COPY P O
+0x000002CF: 0000084F          -- INCR P
+0x000002D0: 000071EF          -- MEMREADRR O P
+0x000002D1: 00001012          -- RET
+0x000002D2:                   -- abs:
+0x000002D2: 000070EF          -- MEMSETRR O P
+0x000002D3: 0000085F          -- DECR P
+0x000002D4: 000001EF          -- COPY O P
+0x000002D5: 0000080C 00000000 -- SETR M 0
+0x000002D7: 0000050C          -- CMPRR A M
+0x000002D8: 00001018 000002DE -- JMPGE abs_L_44:
+0x000002DA: 000001C0          -- COPY M A
+0x000002DB: 000008AC          -- NEGR M
+0x000002DC: 00001000 000002DF -- JMP abs_L_43:
+0x000002DE:                   -- abs_L_44:
+0x000002DE: 000001C0          -- COPY M A
+0x000002DF:                   -- abs_L_43:
+0x000002DF: 000001FE          -- COPY P O
+0x000002E0: 0000084F          -- INCR P
+0x000002E1: 000071EF          -- MEMREADRR O P
+0x000002E2: 00001012          -- RET
+0x000002E3:                   -- min:
+0x000002E3: 000070EF          -- MEMSETRR O P
+0x000002E4: 0000085F          -- DECR P
+0x000002E5: 000001EF          -- COPY O P
+0x000002E6: 00000501          -- CMPRR A B
+0x000002E7: 00001018 000002EC -- JMPGE min_L_47:
+0x000002E9: 000001C0          -- COPY M A
+0x000002EA: 00001000 000002ED -- JMP min_L_46:
+0x000002EC:                   -- min_L_47:
+0x000002EC: 000001C1          -- COPY M B
+0x000002ED:                   -- min_L_46:
+0x000002ED: 000001FE          -- COPY P O
+0x000002EE: 0000084F          -- INCR P
+0x000002EF: 000071EF          -- MEMREADRR O P
+0x000002F0: 00001012          -- RET
+0x000002F1:                   -- max:
+0x000002F1: 000070EF          -- MEMSETRR O P
+0x000002F2: 0000085F          -- DECR P
+0x000002F3: 000001EF          -- COPY O P
+0x000002F4: 00000501          -- CMPRR A B
+0x000002F5: 00001016 000002FA -- JMPLE max_L_50:
+0x000002F7: 000001C0          -- COPY M A
+0x000002F8: 00001000 000002FB -- JMP max_L_49:
+0x000002FA:                   -- max_L_50:
+0x000002FA: 000001C1          -- COPY M B
+0x000002FB:                   -- max_L_49:
+0x000002FB: 000001FE          -- COPY P O
+0x000002FC: 0000084F          -- INCR P
+0x000002FD: 000071EF          -- MEMREADRR O P
+0x000002FE: 00001012          -- RET
+0x000002FF:                   -- swap:
+0x000002FF: 000070EF          -- MEMSETRR O P
+0x00000300: 0000085F          -- DECR P
+0x00000301: 000001EF          -- COPY O P
+0x00000302: 0000082F 00000001 -- MINUSV P 1
+0x00000304: 000001CE          -- COPY M O
+0x00000305: 0000082C 00000000 -- MINUSV M 0
+0x00000307: 000071B0          -- MEMREADRR L A
+0x00000308: 000070BC          -- MEMSETRR L M
+0x00000309: 000071C1          -- MEMREADRR M B
+0x0000030A: 000070C0          -- MEMSETRR M A
+0x0000030B: 000001CE          -- COPY M O
+0x0000030C: 0000082C 00000000 -- MINUSV M 0
+0x0000030E: 000071CC          -- MEMREADRR M M
+0x0000030F: 000070C1          -- MEMSETRR M B
+0x00000310:                   -- swap_L_52:
+0x00000310: 000001FE          -- COPY P O
+0x00000311: 0000084F          -- INCR P
+0x00000312: 000071EF          -- MEMREADRR O P
+0x00000313: 00001012          -- RET
+                              -- // uart_stubs.kla - Low-level UART routines callable from C
+                              -- //
+                              -- // Calling convention: args in A-D, return in M
+                              -- // These are leaf functions (no calls), so no frame setup needed.
+                              -- //
+                              -- // Functions:
+                              -- //   _uart_tx_hex(val)    - print 32-bit value as 8 hex digits
+                              -- //   _uart_newline()      - print CR/LF
+                              -- //   _uart_tx_char(ch)    - print single ASCII character
+                              -- //
+                              -- // Usage from C:
+                              -- //   extern void _uart_tx_hex(int val);
+                              -- //   extern void _uart_newline(void);
+                              -- //   extern void _uart_tx_char(int ch);
+                              -- 
+                              -- // ----------------------------------------------------------------
+                              -- // _uart_tx_hex: print register A as 8 hex digits
+                              -- // Input: A = value
+                              -- // ----------------------------------------------------------------
+0x00000314:                   -- _uart_tx_hex:
+0x00000314: 00005010          -- TXR A
+0x00000315: 00001012          -- RET
+                              -- 
+                              -- // ----------------------------------------------------------------
+                              -- // _uart_newline: print CR/LF
+                              -- // ----------------------------------------------------------------
+0x00000316:                   -- _uart_newline:
+0x00000316: 00005001          -- NEWLINE
+0x00000317: 00001012          -- RET
+                              -- 
+                              -- // ----------------------------------------------------------------
+                              -- // _uart_tx_char: print single ASCII char from A (low 8 bits)
+                              -- // We store the value to a scratch word then use TXCHARMEMR
+                              -- // Input: A = character value (low 8 bits used)
+                              -- // ----------------------------------------------------------------
+0x00000318:                   -- _uart_tx_char:
+0x00000318: 0000080D 0000031D -- SETR N #_CHAR_BUF
+0x0000031A: 0000700D          -- MEMSETRR A N
+0x0000031B: 0000503D          -- TXCHARMEMR N
+0x0000031C: 00001012          -- RET
+                              -- 
+                              -- // Scratch buffer for putchar (1 word)
+0x0000031D: 00000000          -- #_CHAR_BUF 1

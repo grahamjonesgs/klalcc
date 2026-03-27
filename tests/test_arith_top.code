@@ -1,0 +1,29 @@
+                              -- // crt0.kla - Runtime startup for compiled C programs
+                              -- //
+                              -- // Usage:
+                              -- //   1. Compile your C file:  build/rcc -target=klacpu myprogram.c > myprogram.kla
+                              -- //   2. Edit the INCLUDE line below to point to your program
+                              -- //   3. Assemble this file (which includes everything)
+                              -- //
+                              -- // Initialises the stack pointer, calls main(), prints the return
+                              -- // value as 8 hex digits via UART, then halts.
+                              -- 
+                              -- _start
+0x00000000: 0000080F 000FFFFF -- SETR P 0xFFFFF
+0x00000002: 000001EF          -- COPY O P
+0x00000003: 0000F013 00000500 -- DELAYV 0x0500
+0x00000005: 00001009 00000000 -- CALL main:
+0x00000007: 0000501C          -- TXR M
+0x00000008: 00005001          -- NEWLINE
+0x00000009: 0000F011          -- HALT
+                              -- 
+                              -- // === Your compiled program ===
+                              -- 
+                              -- // === C library and UART stubs ===
+                              -- //#INCLUDE "../lib/libc.kla"
+                              -- //#INCLUDE "../lib/uart_stubs.kla"
+0x0000000A: 00000004          -- #INCLUDE "test_arith.kla"
+0x0000000B: 74657374          -- #INCLUDE "test_arith.kla"
+0x0000000C: 5F617269          -- #INCLUDE "test_arith.kla"
+0x0000000D: 74682E6B          -- #INCLUDE "test_arith.kla"
+0x0000000E: 6C610000          -- #INCLUDE "test_arith.kla"

@@ -1,0 +1,36 @@
+# Generic
+.DS_Store
+*.swp
+*~
+*.tmp
+*.bak
+*.log
+
+# Build outputs
+/build/
+*.o
+*.obj
+*.d
+*.exe
+*.out
+*.a
+*.so
+*.dylib
+
+# lcc/klacpu artifacts
+*.kla
+*.kbt
+*.hex
+
+# IDE/editor
+.vscode/
+.idea/
+*.code-workspace
+
+# Generated docs and packaging
+*.tar.gz
+*.zip
+
+# Tests output
+tests/*.0
+*/tst/*.0
