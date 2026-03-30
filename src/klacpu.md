@@ -11,11 +11,14 @@
  *   I-L  (8-11)  caller-saved temps
  *   M    (12)    function return value
  *   N    (13)    scratch for codegen (not allocatable)
- *   O    (14)    frame pointer (FP)
- *   P    (15)    stack pointer (SP)
+ *   O    (14)    caller-saved temp
+ *   P    (15)    frame pointer (FP)
+ *
+ * Stack: hardware DDR2 stack (PUSH/POP/GETSP/SETSP/ADDSP).
+ *        SP is not in a GPR; accessed only via stack opcodes.
  */
 
-#define INTTMP 0x00000F0F  /* A-D(0-3), I-L(8-11) as temps */
+#define INTTMP 0x00004F0F  /* A-D(0-3), I-L(8-11), O(14) as temps */
 #define INTVAR 0x000000F0  /* E-H(4-7) as register variables */
 #define INTRET 0x00001000  /* M(12) return value */
 
@@ -323,10 +326,10 @@ reg:  CALLU1(acon)      "CALL %0:\n"    1
 reg:  CALLP1(acon)      "CALL %0:\n"    1
 stmt: CALLV(acon)       "CALL %0:\n"    1
 
-reg:  CALLI1(reg)       "CALL %0\n"    2
-reg:  CALLU1(reg)       "CALL %0\n"    2
-reg:  CALLP1(reg)       "CALL %0\n"    2
-stmt: CALLV(reg)        "CALL %0\n"    2
+reg:  CALLI1(reg)       "CALLR %0\n"    2
+reg:  CALLU1(reg)       "CALLR %0\n"    2
+reg:  CALLP1(reg)       "CALLR %0\n"    2
+stmt: CALLV(reg)        "CALLR %0\n"    2
 
 stmt: RETI1(reg)       "# ret\n"      1
 stmt: RETU1(reg)       "# ret\n"      1
@@ -366,7 +369,7 @@ static void progbeg(int argc, char *argv[]) {
 
     iregw = mkwildcard(ireg);
 
-    /* Temp registers: A-D(0-3), I-M(8-12) */
+    /* Temp registers: A-D(0-3), I-M(8-12), O(14) */
     tmask[IREG] = INTTMP | INTRET;
     tmask[FREG] = 0;
 
@@ -409,19 +412,19 @@ static void emit2(Node p) {
 
     /* --- Address computation for frame-relative access --- */
     case ADDRF+P: {
-        /* Parameter address: since params are saved as locals, use local calculation */
+        /* Parameter address: FP + off (off is always negative) */
         int off = p->syms[0]->x.offset;
-        print("COPY %s O\nMINUSV %s %s\n",
+        print("COPY %s P\nMINUSV %s %s\n",
             ireg[dst]->x.name, ireg[dst]->x.name,
-            imm(off + 1));
+            imm(-off));
         break;
     }
     case ADDRL+P: {
-        /* Local variable address: FP - offset (locals below frame) */
+        /* Local variable address: FP + off (off is always negative) */
         int off = p->syms[0]->x.offset;
-        print("COPY %s O\nMINUSV %s %s\n",
+        print("COPY %s P\nMINUSV %s %s\n",
             ireg[dst]->x.name, ireg[dst]->x.name,
-            imm(off + 1));
+            imm(-off));
         break;
     }
 
@@ -657,10 +660,11 @@ static void emit2(Node p) {
     case ARG+I: case ARG+U: case ARG+P: {
         int argno = p->x.argno;
         if (argno >= 4) {
-            /* Stack argument: store at offset from SP */
+            /* Stack argument: store at offset from hardware SP */
             int src = getregnum(p->x.kids[0]);
             int stkoff = p->syms[2]->u.c.v.i; /* already in words */
-            print("STIDX %s P %d\n", ireg[src]->x.name, stkoff);
+            print("GETSP N\n");
+            print("STIDX %s N %d\n", ireg[src]->x.name, stkoff);
         }
         break;
     }
@@ -734,7 +738,7 @@ static void local(Symbol p) {
 }
 
 static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
-    int i, saved, varargs;
+    int i, saved, varargs, numparams;
 
     usedmask[0] = usedmask[1] = 0;
     freemask[0] = freemask[1] = ~(unsigned)0;
@@ -743,16 +747,21 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     /* Count params */
     for (i = 0; callee[i]; i++)
         ;
+    numparams = i;
     varargs = variadic(f->type)
-        || i > 0 && strcmp(callee[i-1]->name, "va_alist") == 0;
+        || numparams > 0 && strcmp(callee[numparams-1]->name, "va_alist") == 0;
 
-    /* Process parameters — each is 1 word */
+    /* Process parameters — each is 1 word.
+     * Offsets are negated (like mkauto) so all frame access uses FP + off
+     * where off is always negative: param 0 at FP-1, param 1 at FP-2, etc.
+     */
     for (i = 0; callee[i]; i++) {
         Symbol p = callee[i];
         Symbol q = caller[i];
         assert(q);
-        p->x.offset = q->x.offset = offset;
-        p->x.name = q->x.name = stringd(offset);
+        offset = roundup(offset + q->type->size, q->type->align);
+        p->x.offset = q->x.offset = -offset;
+        p->x.name = q->x.name = stringd(-offset);
 
         if (i < 4 && !varargs
             && ncalls == 0 && !isstruct(q->type)
@@ -764,11 +773,11 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
             q->x = p->x;
             q->type = p->type;
         } else if (askregvar(p, rmap(ttob(p->type)))
-                   && i < 4 && isint(p->type)) {
+                   && i < 4
+                   && (isint(p->type) || p->type == q->type)) {
             p->sclass = q->sclass = REGISTER;
             q->type = p->type;
         }
-        offset += q->type->size;  /* size=1, so offset increments by 1 */
     }
     assert(!caller[i]);
 
@@ -780,9 +789,12 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         }
     }
 
-    /* Generate code */
-    offset = 0;
+    /* Generate code — offset is NOT reset so locals start after param slots */
     gencode(caller, callee);
+
+    /* Ensure maxoffset covers all param frame slots */
+    if (maxoffset < numparams)
+        maxoffset = numparams;
 
     /* Count callee-saved registers used */
     usedmask[IREG] &= INTVAR; /* only care about callee-saved regs */
@@ -799,40 +811,70 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     segment(CODE);
     print("%s:\n", f->x.name);
 
-    /* Save old FP to software stack */
-    print("MEMSETRR O P\n");   /* mem[SP] = FP */
-    print("DECR P\n");          /* SP-- */
-
-    /* Set up new frame */
-    print("COPY O P\n");        /* FP = SP */
+    /* Save old FP and set up new frame using hardware stack */
+    print("PUSH P\n");              /* save old FP on DDR2 stack */
+    print("GETSP P\n");             /* FP = SP */
 
     /* Allocate frame */
     if (framesize_actual > 0)
-        print("MINUSV P %s\n", imm(framesize_actual));
+        print("ADDSP %s\n", imm(-framesize_actual));
 
-    /* Save callee-saved registers at bottom of frame (above outgoing args) */
+    /* Save callee-saved registers (below locals in frame) */
     {
         int slot = 0;
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
-                print("STIDX %s O %s\n", ireg[i]->x.name,
+                print("STIDX %s P %s\n", ireg[i]->x.name,
                     imm(-(maxoffset + slot + 1)));
                 slot++;
             }
         }
     }
 
-    /* Save register arguments to frame if needed */
+    /* Save register arguments (0-3) to frame if needed.
+     * Store when callee is AUTO (body reads from frame),
+     * or when caller/callee differ (gencode inserts a transfer
+     * that loads from the frame slot).
+     */
     for (i = 0; i < 4 && callee[i]; i++) {
         Symbol p = callee[i];
         Symbol q = caller[i];
-        if (p->sclass != REGISTER) {
-            /* Store reg arg to its local slot */
+        if (p->sclass != REGISTER
+            || p->sclass != q->sclass
+            || p->type != q->type) {
             print("// save arg %d\n", i);
-            print("STIDX %s O %s\n", ireg[i]->x.name,
-                imm(-(p->x.offset + 1)));
-            /* Since it's now stored as a local, change class to AUTO */
-            p->sclass = q->sclass = AUTO;
+            print("STIDX %s P %s\n", ireg[i]->x.name,
+                imm(p->x.offset));
+            if (p->sclass != REGISTER)
+                p->sclass = q->sclass = AUTO;
+        }
+    }
+
+    /* Move register args to their callee-saved register variables.
+     * When askregvar assigned a param to a callee-saved reg (E-H),
+     * the value is still in the argument reg (A-D).  Generate COPY.
+     */
+    for (i = 0; i < 4 && callee[i]; i++) {
+        Symbol p = callee[i];
+        if (p->sclass == REGISTER && p->x.regnode
+            && p->x.regnode->number != i) {
+            print("COPY %s %s\n", ireg[p->x.regnode->number]->x.name,
+                ireg[i]->x.name);
+        }
+    }
+
+    /* Copy overflow arguments (>=4) from caller's stack to local frame.
+     * After CALL (pushes ret addr) + PUSH P (saves old FP) + GETSP P:
+     *   caller_SP = FP + 2
+     *   overflow arg with stkoff is at FP + stkoff + 2
+     * For arg index i, stkoff = i (since each arg is 1 word).
+     */
+    for (i = 4; i < numparams; i++) {
+        Symbol p = callee[i];
+        if (p->sclass != REGISTER) {
+            print("// copy overflow arg %d\n", i);
+            print("LDIDX N P %d\n", i + 2);
+            print("STIDX N P %s\n", imm(p->x.offset));
         }
     }
 
@@ -844,17 +886,16 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         int slot = 0;
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
-                print("LDIDX %s O %s\n", ireg[i]->x.name,
+                print("LDIDX %s P %s\n", ireg[i]->x.name,
                     imm(-(maxoffset + slot + 1)));
                 slot++;
             }
         }
     }
 
-    /* Restore SP and FP */
-    print("COPY P O\n");        /* SP = FP */
-    print("INCR P\n");          /* SP++ (point to saved FP) */
-    print("MEMREADRR O P\n");   /* FP = mem[SP] (restore old FP) */
+    /* Restore SP and FP using hardware stack ops */
+    print("SETSP P\n");             /* SP = FP (discard locals) */
+    print("POP P\n");               /* restore old FP */
     print("RET\n");
 }
 

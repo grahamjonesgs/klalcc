@@ -1,0 +1,59 @@
+test_nmod:
+PUSH P
+GETSP P
+ADDSP -3
+STIDX H P -2
+COPY H A
+COPY A H
+CALL _uart_tx_hex:
+COPY A H
+CALL _uart_tx_hex:
+COPY A H
+CALL _uart_tx_hex:
+test_nmod_L_1:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+test_mod:
+PUSH P
+GETSP P
+ADDSP -3
+STIDX H P -2
+COPY H A
+JMP test_mod_L_4:
+test_mod_L_3:
+MEMREADRR A H
+CALL _uart_tx_char:
+SETR O 1
+ADDRR H O
+test_mod_L_4:
+MEMREADRR O H
+SETR M 0
+CMPRR O M
+JMPNE test_mod_L_3:
+test_mod_L_2:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+test_val:
+PUSH P
+GETSP P
+ADDSP -3
+STIDX H P -2
+COPY H A
+COPY A H
+CALL _uart_tx_hex:
+SETR O 0
+CMPRR H O
+JMPLE test_val_L_7:
+COPY A H
+CALL _uart_tx_hex:
+test_val_L_7:
+COPY M H
+test_val_L_6:
+LDIDX H P -2
+SETSP P
+POP P
+RET

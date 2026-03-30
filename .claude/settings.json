@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make rcc:*)",
+      "Bash(build/rcc -target=klacpu tests/test_calls.c)",
+      "Bash(build/rcc -target=klacpu tests/test_recursive.c)",
+      "Bash(build/rcc -target=klacpu tests/test_locals.c)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(build/rcc -target=klacpu \"$f\")",
+      "Bash(done)",
+      "Bash(build/rcc -target=klacpu tests/test_stress.c)",
+      "Bash(build/rcc -target=klacpu tests/demo.c)",
+      "Bash(do build/rcc -target=klacpu $f)",
+      "Bash(build/rcc -target=klacpu $f)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}
