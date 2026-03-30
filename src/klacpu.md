@@ -967,7 +967,8 @@ static void address(Symbol q, Symbol p, long n) {
 
 static void global(Symbol p) {
     if (p->u.seg == BSS) {
-        /* .kla format: #NAME SIZE allocates a buffer */
+        /* Emit label so SETR can reference it, then allocate space */
+        print("%s:\n", p->x.name);
         print("#%s %d\n", p->x.name, p->type->size);
     } else {
         print("%s:\n", p->x.name);
