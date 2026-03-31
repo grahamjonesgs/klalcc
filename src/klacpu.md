@@ -279,12 +279,12 @@ rc5: CNSTU1  "%a"  range(a, 0, 31)
 
 reg: LSHI1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
 reg: LSHU1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
-reg: LSHI1(reg,reg)    "# lsh_var\n"  8
-reg: LSHU1(reg,reg)    "# lsh_var\n"  8
+reg: LSHI1(reg,reg)    "# lsh_var\n"  2
+reg: LSHU1(reg,reg)    "# lsh_var\n"  2
 reg: RSHI1(reg,rc5)    "COPY %c %0\nSHRAV %c %1\n"  2
 reg: RSHU1(reg,rc5)    "COPY %c %0\nSHRV %c %1\n"   2
-reg: RSHI1(reg,reg)    "# rsha_var\n" 8
-reg: RSHU1(reg,reg)    "# rshl_var\n" 8
+reg: RSHI1(reg,reg)    "# rsha_var\n" 2
+reg: RSHU1(reg,reg)    "# rshl_var\n" 2
 
 reg: LOADI1(reg)  "COPY %c %0\n"  move(a)
 reg: LOADU1(reg)  "COPY %c %0\n"  move(a)
@@ -312,10 +312,10 @@ stmt: LEI1(reg,reg)   "CMPRR %0 %1\nJMPLE %a:\n"   2
 stmt: GTI1(reg,reg)   "CMPRR %0 %1\nJMPGT %a:\n"   2
 stmt: GEI1(reg,reg)   "CMPRR %0 %1\nJMPGE %a:\n"   2
 
-stmt: LTU1(reg,reg)   "CMPULTRR %0 %1\nJMPE %a:\n"  2
-stmt: LEU1(reg,reg)   "CMPULERR %0 %1\nJMPE %a:\n"  2
-stmt: GTU1(reg,reg)   "CMPUGTRR %0 %1\nJMPE %a:\n"  2
-stmt: GEU1(reg,reg)   "CMPUGERR %0 %1\nJMPE %a:\n"  2
+stmt: LTU1(reg,reg)   "CMPULTR N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
+stmt: LEU1(reg,reg)   "CMPULER N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
+stmt: GTU1(reg,reg)   "CMPUGTR N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
+stmt: GEU1(reg,reg)   "CMPUGER N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
 
 stmt: LABELV           "%a:\n"
 stmt: JUMPV(acon)      "JMP %0:\n"     1
@@ -432,115 +432,49 @@ static void emit2(Node p) {
     case ADD+I: case ADD+U: case ADD+P: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("ADDRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("ADDRR %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("ADDRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("ADDR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case SUB+I: case SUB+U: case SUB+P: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("MINUSRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1) {
-            print("COPY N %s\n", ireg[src1]->x.name);
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MINUSRR %s N\n", ireg[dst]->x.name);
-        } else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MINUSRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("SUBR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case MUL+I: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("MULRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("MULRR %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MULRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("MULR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case MUL+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("MULURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("MULURR %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MULURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("MULUR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case DIV+I: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("DIVRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1) {
-            print("COPY N %s\n", ireg[src1]->x.name);
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("DIVRR %s N\n", ireg[dst]->x.name);
-        } else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("DIVRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("DIVR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case DIV+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("DIVURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1) {
-            print("COPY N %s\n", ireg[src1]->x.name);
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("DIVURR %s N\n", ireg[dst]->x.name);
-        } else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("DIVURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("DIVUR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case MOD+I: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("MODRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1) {
-            print("COPY N %s\n", ireg[src1]->x.name);
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MODRR %s N\n", ireg[dst]->x.name);
-        } else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MODRR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("MODR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case MOD+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("MODURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1) {
-            print("COPY N %s\n", ireg[src1]->x.name);
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MODURR %s N\n", ireg[dst]->x.name);
-        } else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("MODURR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("MODUR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case NEG+I: {
@@ -555,40 +489,19 @@ static void emit2(Node p) {
     case BAND+I: case BAND+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("AND %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("AND %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("AND %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("ANDR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case BOR+I: case BOR+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("OR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("OR %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("OR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("ORR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case BXOR+I: case BXOR+U: {
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        if (dst == src0)
-            print("XOR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        else if (dst == src1)
-            print("XOR %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        else {
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-            print("XOR %s %s\n", ireg[dst]->x.name, ireg[src1]->x.name);
-        }
+        print("XORR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case BCOM+I: case BCOM+U: {
@@ -601,58 +514,21 @@ static void emit2(Node p) {
 
     /* --- Shifts --- */
     case LSH+I: case LSH+U: {
-        /* Variable left shift: loop shifting by 1 */
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        int lab_top = genlabel(1);
-        int lab_done = genlabel(1);
-        if (dst != src0)
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        /* Use N as scratch counter */
-        print("COPY N %s\n", ireg[src1]->x.name);
-        print("%s_SH_%d:\n", curfunc, lab_top);
-        print("CMPRV N 0\n");
-        print("JMPE %s_SH_%d:\n", curfunc, lab_done);
-        print("SHLR %s\n", ireg[dst]->x.name);
-        print("DECR N\n");
-        print("JMP %s_SH_%d:\n", curfunc, lab_top);
-        print("%s_SH_%d:\n", curfunc, lab_done);
+        print("SHLR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case RSH+I: {
-        /* Variable arithmetic right shift */
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        int lab_top = genlabel(1);
-        int lab_done = genlabel(1);
-        if (dst != src0)
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        print("COPY N %s\n", ireg[src1]->x.name);
-        print("%s_SH_%d:\n", curfunc, lab_top);
-        print("CMPRV N 0\n");
-        print("JMPE %s_SH_%d:\n", curfunc, lab_done);
-        print("SHRAR %s\n", ireg[dst]->x.name);
-        print("DECR N\n");
-        print("JMP %s_SH_%d:\n", curfunc, lab_top);
-        print("%s_SH_%d:\n", curfunc, lab_done);
+        print("SARR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
     case RSH+U: {
-        /* Variable logical right shift */
         int src0 = getregnum(p->kids[0]);
         int src1 = getregnum(p->kids[1]);
-        int lab_top = genlabel(1);
-        int lab_done = genlabel(1);
-        if (dst != src0)
-            print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        print("COPY N %s\n", ireg[src1]->x.name);
-        print("%s_SH_%d:\n", curfunc, lab_top);
-        print("CMPRV N 0\n");
-        print("JMPE %s_SH_%d:\n", curfunc, lab_done);
-        print("SHRR %s\n", ireg[dst]->x.name);
-        print("DECR N\n");
-        print("JMP %s_SH_%d:\n", curfunc, lab_top);
-        print("%s_SH_%d:\n", curfunc, lab_done);
+        print("SHRR %s %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name, ireg[src1]->x.name);
         break;
     }
 
