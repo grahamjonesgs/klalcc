@@ -271,8 +271,8 @@ reg: BORI1(reg,reg)    "# or\n"   2
 reg: BORU1(reg,reg)    "# or\n"   2
 reg: BXORI1(reg,reg)   "# xor\n"  2
 reg: BXORU1(reg,reg)   "# xor\n"  2
-reg: BCOMI1(reg)       "# not\n" 1
-reg: BCOMU1(reg)       "# not\n" 1
+reg: BCOMI1(reg)       "# notr\n" 1
+reg: BCOMU1(reg)       "# notr\n" 1
 
 rc5: CNSTI1  "%a"  range(a, 0, 31)
 rc5: CNSTU1  "%a"  range(a, 0, 31)
