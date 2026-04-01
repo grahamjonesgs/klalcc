@@ -10,6 +10,8 @@
 extern void _uart_tx_hex(int val);
 extern void _uart_newline(void);
 extern void _uart_tx_char(int ch);
+extern int  _uart_rx_char(void);
+extern int  _uart_rx_char_nb(void);
 
 /* Forward declarations */
 void print_unsigned(unsigned n);
@@ -22,6 +24,18 @@ void print_str(int *s);
 
 void putchar(int ch) {
     _uart_tx_char(ch);
+}
+
+/* Blocking receive: waits until a byte arrives, returns it */
+int getchar(void) {
+    return _uart_rx_char();
+}
+
+/* Non-blocking receive: returns received byte, or -1 if FIFO was empty.
+ * The -1 sentinel is produced by the stub (flag test + NOTR); no CPU
+ * flag inspection is needed here. */
+int getchar_nb(void) {
+    return _uart_rx_char_nb();
 }
 
 void puts(int *s) {
