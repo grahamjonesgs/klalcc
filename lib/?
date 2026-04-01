@@ -1,0 +1,409 @@
+putchar:
+PUSH P
+GETSP P
+ADDSP -2
+// save arg 0
+STIDX A P -1
+COPY O P
+MINUSV O 1
+MEMREADRR A O
+CALL _uart_tx_char:
+putchar_L_1:
+SETSP P
+POP P
+RET
+getchar:
+PUSH P
+GETSP P
+CALL _uart_rx_char:
+COPY O M
+getchar_L_2:
+SETSP P
+POP P
+RET
+getchar_nb:
+PUSH P
+GETSP P
+CALL _uart_rx_char_nb:
+COPY O M
+getchar_nb_L_3:
+SETSP P
+POP P
+RET
+puts:
+PUSH P
+GETSP P
+ADDSP -3
+STIDX H P -2
+COPY H A
+JMP puts_L_6:
+puts_L_5:
+MEMREADRR A H
+CALL putchar:
+SETR O 1
+ADDR H H O
+puts_L_6:
+MEMREADRR O H
+SETR M 0
+CMPRR O M
+JMPNE puts_L_5:
+SETR A 10
+CALL putchar:
+puts_L_4:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+print_str:
+PUSH P
+GETSP P
+ADDSP -3
+STIDX H P -2
+COPY H A
+JMP print_str_L_10:
+print_str_L_9:
+MEMREADRR A H
+CALL putchar:
+SETR O 1
+ADDR H H O
+print_str_L_10:
+MEMREADRR O H
+SETR M 0
+CMPRR O M
+JMPNE print_str_L_9:
+print_str_L_8:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+print_unsigned:
+PUSH P
+GETSP P
+ADDSP -2
+// save arg 0
+STIDX A P -1
+COPY O P
+MINUSV O 1
+MEMREADRR O O
+SETR M 10
+CMPRR O M
+JMPULT print_unsigned_L_13:
+COPY O P
+MINUSV O 1
+MEMREADRR O O
+SETR M 10
+DIVUR A O M
+CALL print_unsigned:
+print_unsigned_L_13:
+COPY O P
+MINUSV O 1
+MEMREADRR O O
+SETR M 10
+MODUR O O M
+SETR M 48
+ADDR O O M
+COPY A O
+CALL putchar:
+print_unsigned_L_12:
+SETSP P
+POP P
+RET
+print_int:
+PUSH P
+GETSP P
+ADDSP -4
+STIDX H P -2
+COPY H A
+SETR O 0
+CMPRR H O
+JMPGE print_int_L_16:
+SETR A 45
+CALL putchar:
+COPY A H
+NEGR A
+COPY B H
+CALL _print_neg:
+JMP print_int_L_15:
+print_int_L_16:
+COPY A H
+CALL print_unsigned:
+print_int_L_15:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+_print_neg:
+PUSH P
+GETSP P
+ADDSP -3
+// save arg 0
+STIDX A P -1
+// save arg 1
+STIDX B P -2
+COPY O P
+MINUSV O 1
+MEMREADRR O O
+SETR M 0
+CMPRR O M
+JMPGE _print_neg_L_19:
+SETR A 50
+CALL putchar:
+SETR A 49
+CALL putchar:
+SETR A 52
+CALL putchar:
+SETR A 55
+CALL putchar:
+SETR A 52
+CALL putchar:
+SETR A 56
+CALL putchar:
+SETR A 51
+CALL putchar:
+SETR A 54
+CALL putchar:
+SETR A 52
+CALL putchar:
+SETR A 56
+CALL putchar:
+JMP _print_neg_L_20:
+_print_neg_L_19:
+COPY O P
+MINUSV O 1
+MEMREADRR O O
+COPY A O
+CALL print_unsigned:
+_print_neg_L_20:
+_print_neg_L_18:
+SETSP P
+POP P
+RET
+print_hex:
+PUSH P
+GETSP P
+ADDSP -2
+// save arg 0
+STIDX A P -1
+COPY O P
+MINUSV O 1
+MEMREADRR A O
+CALL _uart_tx_hex:
+print_hex_L_21:
+SETSP P
+POP P
+RET
+print_hex_prefix:
+PUSH P
+GETSP P
+ADDSP -2
+// save arg 0
+STIDX A P -1
+SETR A 48
+CALL putchar:
+SETR A 120
+CALL putchar:
+COPY O P
+MINUSV O 1
+MEMREADRR A O
+CALL _uart_tx_hex:
+print_hex_prefix_L_22:
+SETSP P
+POP P
+RET
+newline:
+PUSH P
+GETSP P
+CALL _uart_newline:
+newline_L_23:
+SETSP P
+POP P
+RET
+strlen:
+PUSH P
+GETSP P
+ADDSP -2
+STIDX H P -2
+SETR H 0
+JMP strlen_L_26:
+strlen_L_25:
+SETR O 1
+ADDR H H O
+SETR O 1
+ADDR A A O
+strlen_L_26:
+MEMREADRR O A
+SETR M 0
+CMPRR O M
+JMPNE strlen_L_25:
+COPY M H
+strlen_L_24:
+LDIDX H P -2
+SETSP P
+POP P
+RET
+strcmp:
+PUSH P
+GETSP P
+ADDSP -2
+JMP strcmp_L_30:
+strcmp_L_29:
+SETR O 1
+ADDR A A O
+ADDR B B O
+strcmp_L_30:
+MEMREADRR O A
+SETR M 0
+CMPRR O M
+JMPE strcmp_L_32:
+MEMREADRR M B
+CMPRR O M
+JMPE strcmp_L_29:
+strcmp_L_32:
+MEMREADRR O A
+MEMREADRR M B
+SUBR M O M
+strcmp_L_28:
+SETSP P
+POP P
+RET
+strcpy:
+PUSH P
+GETSP P
+ADDSP -3
+COPY O P
+MINUSV O 3
+MEMSETRR A O
+JMP strcpy_L_35:
+strcpy_L_34:
+MEMREADRR O B
+MEMSETRR O A
+SETR O 1
+ADDR A A O
+ADDR B B O
+strcpy_L_35:
+MEMREADRR O B
+SETR M 0
+CMPRR O M
+JMPNE strcpy_L_34:
+SETR O 0
+MEMSETRR O A
+COPY O P
+MINUSV O 3
+MEMREADRR M O
+strcpy_L_33:
+SETSP P
+POP P
+RET
+memset:
+PUSH P
+GETSP P
+ADDSP -4
+STIDX H P -4
+COPY H A
+JMP memset_L_39:
+memset_L_38:
+MEMSETRR B H
+SETR O 1
+ADDR H H O
+SETR O 1
+SUBR C C O
+memset_L_39:
+SETR O 0
+CMPRR C O
+JMPGT memset_L_38:
+COPY M A
+memset_L_37:
+LDIDX H P -4
+SETSP P
+POP P
+RET
+memcpy:
+PUSH P
+GETSP P
+ADDSP -5
+STIDX G P -4
+STIDX H P -5
+COPY H A
+COPY G B
+JMP memcpy_L_43:
+memcpy_L_42:
+MEMREADRR O G
+MEMSETRR O H
+SETR O 1
+ADDR H H O
+ADDR G G O
+SETR O 1
+SUBR C C O
+memcpy_L_43:
+SETR O 0
+CMPRR C O
+JMPGT memcpy_L_42:
+COPY M A
+memcpy_L_41:
+LDIDX G P -4
+LDIDX H P -5
+SETSP P
+POP P
+RET
+abs:
+PUSH P
+GETSP P
+ADDSP -1
+SETR O 0
+CMPRR A O
+JMPGE abs_L_46:
+COPY M A
+NEGR M
+JMP abs_L_45:
+abs_L_46:
+COPY M A
+abs_L_45:
+SETSP P
+POP P
+RET
+min:
+PUSH P
+GETSP P
+ADDSP -2
+CMPRR A B
+JMPGE min_L_49:
+COPY M A
+JMP min_L_48:
+min_L_49:
+COPY M B
+min_L_48:
+SETSP P
+POP P
+RET
+max:
+PUSH P
+GETSP P
+ADDSP -2
+CMPRR A B
+JMPLE max_L_52:
+COPY M A
+JMP max_L_51:
+max_L_52:
+COPY M B
+max_L_51:
+SETSP P
+POP P
+RET
+swap:
+PUSH P
+GETSP P
+ADDSP -3
+COPY O P
+MINUSV O 3
+MEMREADRR M A
+MEMSETRR M O
+MEMREADRR O B
+MEMSETRR O A
+COPY O P
+MINUSV O 3
+MEMREADRR O O
+MEMSETRR O B
+swap_L_54:
+SETSP P
+POP P
+RET
