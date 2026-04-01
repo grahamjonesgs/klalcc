@@ -271,8 +271,8 @@ reg: BORI1(reg,reg)    "# or\n"   2
 reg: BORU1(reg,reg)    "# or\n"   2
 reg: BXORI1(reg,reg)   "# xor\n"  2
 reg: BXORU1(reg,reg)   "# xor\n"  2
-reg: BCOMI1(reg)       "# bcom\n" 2
-reg: BCOMU1(reg)       "# bcom\n" 2
+reg: BCOMI1(reg)       "# not\n" 1
+reg: BCOMU1(reg)       "# not\n" 1
 
 rc5: CNSTI1  "%a"  range(a, 0, 31)
 rc5: CNSTU1  "%a"  range(a, 0, 31)
@@ -312,10 +312,10 @@ stmt: LEI1(reg,reg)   "CMPRR %0 %1\nJMPLE %a:\n"   2
 stmt: GTI1(reg,reg)   "CMPRR %0 %1\nJMPGT %a:\n"   2
 stmt: GEI1(reg,reg)   "CMPRR %0 %1\nJMPGE %a:\n"   2
 
-stmt: LTU1(reg,reg)   "CMPULTR N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
-stmt: LEU1(reg,reg)   "CMPULER N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
-stmt: GTU1(reg,reg)   "CMPUGTR N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
-stmt: GEU1(reg,reg)   "CMPUGER N %0 %1\nCMPRV N 0\nJMPNZ %a:\n"  3
+stmt: LTU1(reg,reg)   "CMPRR %0 %1\nJMPULT %a:\n"   2
+stmt: LEU1(reg,reg)   "CMPRR %0 %1\nJMPULE %a:\n"    2
+stmt: GTU1(reg,reg)   "CMPRR %0 %1\nJMPUGT %a:\n"    2
+stmt: GEU1(reg,reg)   "CMPRR %0 %1\nJMPUGE %a:\n"    2
 
 stmt: LABELV           "%a:\n"
 stmt: JUMPV(acon)      "JMP %0:\n"     1
