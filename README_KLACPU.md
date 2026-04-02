@@ -25,8 +25,8 @@ bash run_tests.sh    # 10/10 should pass
 The compiler outputs .kla assembly directly.
 
 ```bash
-# Compile C to .kla
-build/rcc -target=klacpu myprogram.c > myprogram.kla
+# Compile C to .kla (cpp handles #define, #include, #ifdef etc.)
+build/cpp myprogram.c | build/rcc -target=klacpu > myprogram.kla
 
 # Assemble via crt0.kla (edit INCLUDE path first)
 your_assembler crt0.kla
@@ -36,7 +36,7 @@ your_assembler crt0.kla
 
 ```
 myprogram.c
-    |  build/rcc -target=klacpu
+    |  build/cpp | build/rcc -target=klacpu
     v
 myprogram.kla
     |
@@ -82,7 +82,7 @@ Available when you include lib/libc.kla:
 
 If you modify lib/libc.c:
 ```bash
-build/rcc -target=klacpu lib/libc.c > lib/libc.kla
+build/cpp lib/libc.c | build/rcc -target=klacpu > lib/libc.kla
 ```
 
 ## Memory Model
