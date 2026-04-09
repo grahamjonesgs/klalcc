@@ -1,7 +1,8 @@
-/* libc.c - Minimal C library for FPGA_CPU_32_DDR_cache
+/* libc.c - Minimal C library for FPGA_CPU_64_DDR_cache
  *
- * Byte-addressed CPU. sizeof(char)=1, sizeof(int)=sizeof(void*)=4.
- * CHAR_BIT=8. No floating point. No file I/O. Output via UART only.
+ * Byte-addressed CPU. sizeof(char)=1, sizeof(int)=8, sizeof(void*)=4.
+ * CHAR_BIT=8. Registers are 64-bit. No floating point. No file I/O.
+ * Output via UART only.
  *
  * Compile with: build/rcc -target=klacpu lib/libc.c > lib/libc.asm
  */
@@ -77,20 +78,22 @@ void print_int(int n) {
     print_unsigned(n);
 }
 
-/* Helper for negative numbers: if -n overflowed (n==MIN_INT), 
+/* Helper for negative numbers: if -n overflowed (n==MIN_INT),
    neg will equal n. We detect this and handle specially. */
 void _print_neg(int neg, int orig) {
     if (neg < 0) {
-        /* Overflow: orig was MIN_INT. Print "2147483648" literally */
-        putchar(50); putchar(49); putchar(52); putchar(55);
-        putchar(52); putchar(56); putchar(51); putchar(54);
-        putchar(52); putchar(56);
+        /* Overflow: orig was MIN_INT. Print "9223372036854775808" literally */
+        putchar(57); putchar(50); putchar(50); putchar(51);
+        putchar(51); putchar(55); putchar(50); putchar(48);
+        putchar(51); putchar(54); putchar(56); putchar(53);
+        putchar(52); putchar(55); putchar(55); putchar(53);
+        putchar(56); putchar(48); putchar(56);
     } else {
         print_unsigned(neg);
     }
 }
 
-/* Print 32-bit value as 8 hex digits */
+/* Print 64-bit value as 16 hex digits */
 void print_hex(int val) {
     _uart_tx_hex(val);
 }
@@ -213,18 +216,18 @@ void swap(int *a, int *b) {
 /* =============================================================
  * Heap management - Free-list allocator
  *
- * The assembler writes four 32-bit words at the very start of
- * memory (byte addresses 0, 4, 8, 12):
+ * The assembler writes four 64-bit words at the very start of
+ * memory (byte addresses 0, 8, 16, 24):
  *
  *   [0]  heap_start — byte address of first heap word (set by assembler, read-only)
- *   [4]  (unused by library — heap_top is kept in _heap_top static variable)
- *   [8]  reserved
- *   [12] reserved
+ *   [1]  (unused by library — heap_top is kept in _heap_top static variable)
+ *   [2]  reserved
+ *   [3]  reserved
  *
- * malloc() accepts a byte count and rounds up to the nearest 4-byte word.
- * All block pointers and size fields are in 4-byte WORDS internally.
+ * malloc() accepts a byte count and rounds up to the nearest 8-byte word.
+ * All block pointers and size fields are in 8-byte WORDS internally.
  *
- * Each heap block has a 3-word (12-byte) header followed by user data:
+ * Each heap block has a 3-word (24-byte) header followed by user data:
  *
  *   blk[0]  size — user-data words in this block (header NOT counted)
  *   blk[1]  free — 1 = free, 0 = allocated
@@ -234,7 +237,7 @@ void swap(int *a, int *b) {
  * blocks can be coalesced in O(1) on every free().
  * ============================================================= */
 
-#define MALLOC_HDRSIZE   3    /* header words per block (12 bytes)    */
+#define MALLOC_HDRSIZE   3    /* header words per block (24 bytes)    */
 #define MALLOC_MIN_SPLIT 1    /* min user words to create a split     */
 
 static int  _heap_inited = 0;
@@ -266,8 +269,8 @@ void *malloc(int size) {
     if (!_heap_inited) _heap_init();
     if (size <= 0) return 0;
 
-    /* Round byte size up to whole words */
-    words = (size + 3) / 4;
+    /* Round byte size up to whole 8-byte words */
+    words = (size + 7) / 8;
 
     /* --- First-fit search through the address-sorted free list --- */
     prev = 0;
@@ -389,17 +392,17 @@ void *realloc(void *ptr, int new_size) {
 
     blk       = (int *)ptr - MALLOC_HDRSIZE;
     old_words = blk[0];
-    new_words = (new_size + 3) / 4;
+    new_words = (new_size + 7) / 8;
     if (new_words <= old_words) return ptr;   /* already fits */
 
     new_ptr = malloc(new_size);
     if (new_ptr == 0) return 0;
-    memcpy((char *)new_ptr, (char *)ptr, old_words * 4);
+    memcpy((char *)new_ptr, (char *)ptr, old_words * 8);
     free(ptr);
     return new_ptr;
 }
 
-/* heap_words_used: count 4-byte words currently allocated.
+/* heap_words_used: count 8-byte words currently allocated.
  * Walks all blocks linearly from heap_start to _heap_top.
  * Uses != (not <) to avoid any JMPULT hardware quirk. */
 int heap_words_used(void) {
