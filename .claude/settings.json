@@ -12,7 +12,9 @@
       "Bash(build/rcc -target=klacpu tests/test_stress.c)",
       "Bash(build/rcc -target=klacpu tests/demo.c)",
       "Bash(do build/rcc -target=klacpu $f)",
-      "Bash(build/rcc -target=klacpu $f)"
+      "Bash(build/rcc -target=klacpu $f)",
+      "Bash(build/rcc -target=klacpu lib/libc.c)",
+      "Read(//Users/gjonesblackcyton/Documents/src/FPGA_CPU_32_DDR_cache/**)"
     ],
     "additionalDirectories": [
       "/tmp"

@@ -2,8 +2,14 @@
 /*
  * lcc backend for FPGA_CPU_32_DDR_cache
  *
- * 32-bit word-addressed CPU, 16 GPRs (A-P), no FP hardware.
- * All C types are 32 bits (CHAR_BIT=32).
+ * Byte-addressed CPU (CHAR_BIT=8). All registers are 32-bit.
+ * sizeof(char)=1, sizeof(short)=sizeof(int)=sizeof(long)=sizeof(T*)=4.
+ *
+ * New memory instructions:
+ *   MEMGET8 dst src  — load 1 byte (zero-extended) from byte address in src
+ *   MEMSET8 src dst  — store low byte of src to byte address in dst
+ *   MEMREADRR dst src — load 4-byte word from word-aligned byte address in src
+ *   MEMSETRR src dst  — store 4-byte word to word-aligned byte address in dst
  *
  * Register convention:
  *   A-D  (0-3)   argument passing, caller-saved temps
@@ -15,7 +21,14 @@
  *   P    (15)    frame pointer (FP)
  *
  * Stack: hardware DDR2 stack (PUSH/POP/GETSP/SETSP/ADDSP).
- *        SP is not in a GPR; accessed only via stack opcodes.
+ *        SP is not in a GPR; ADDSP takes byte count; STIDX/LDIDX take byte offsets.
+ *
+ * Frame layout (byte offsets from FP, FP set after PUSH P / GETSP P):
+ *   [FP+0]        saved old FP (PUSH P)
+ *   [FP+4]        return address (CALL)
+ *   [FP+8+i*4]    overflow arg i (i >= 4, caller placed on stack)
+ *   [FP-4]..[FP-maxoffset]    locals and spills
+ *   [FP-(maxoffset+4)]..[FP-(maxoffset+saved*4)]  callee-saved regs
  */
 
 #define INTTMP 0x00004F0F  /* A-D(0-3), I-L(8-11), O(14) as temps */
@@ -213,57 +226,186 @@ enum {
 %term LOADU2=2278
 
 %term VREGP=711
+
+%term CNSTI4=4117
+%term CNSTP4=4119
+%term CNSTU4=4118
+
+%term ARGI4=4133
+%term ARGP4=4135
+%term ARGU4=4134
+
+%term ASGNI4=4149
+%term ASGNP4=4151
+%term ASGNU4=4150
+
+%term INDIRI4=4165
+%term INDIRP4=4167
+%term INDIRU4=4166
+
+%term CVII4=4229
+%term CVIU4=4230
+%term CVPP4=4247
+%term CVPU4=4246
+%term CVUI4=4277
+%term CVUP4=4279
+%term CVUU4=4278
+
+%term NEGI4=4293
+
+%term CALLI4=4309
+%term CALLP4=4311
+%term CALLU4=4310
+
+%term RETI4=4341
+%term RETP4=4343
+%term RETU4=4342
+
+%term ADDRGP4=4359
+%term ADDRFP4=4375
+%term ADDRLP4=4391
+
+%term ADDI4=4405
+%term ADDP4=4407
+%term ADDU4=4406
+
+%term SUBI4=4421
+%term SUBP4=4423
+%term SUBU4=4422
+
+%term LSHI4=4437
+%term LSHU4=4438
+
+%term MODI4=4453
+%term MODU4=4454
+
+%term RSHI4=4469
+%term RSHU4=4470
+
+%term BANDI4=4485
+%term BANDU4=4486
+
+%term BCOMI4=4501
+%term BCOMU4=4502
+
+%term BORI4=4517
+%term BORU4=4518
+
+%term BXORI4=4533
+%term BXORU4=4534
+
+%term DIVI4=4549
+%term DIVU4=4550
+
+%term MULI4=4565
+%term MULU4=4566
+
+%term EQI4=4581
+%term EQU4=4582
+
+%term GEI4=4597
+%term GEU4=4598
+
+%term GTI4=4613
+%term GTU4=4614
+
+%term LEI4=4629
+%term LEU4=4630
+
+%term LTI4=4645
+%term LTU4=4646
+
+%term NEI4=4661
+%term NEU4=4662
+
+%term LOADI4=4325
+%term LOADP4=4327
+%term LOADU4=4326
+
 %%
 
 reg: INDIRI1(VREGP)     "# read register\n"
 reg: INDIRU1(VREGP)     "# read register\n"
 reg: INDIRP1(VREGP)     "# read register\n"
+reg: INDIRI4(VREGP)     "# read register\n"
+reg: INDIRU4(VREGP)     "# read register\n"
+reg: INDIRP4(VREGP)     "# read register\n"
 
 stmt: ASGNI1(VREGP,reg)  "# write register\n"
 stmt: ASGNU1(VREGP,reg)  "# write register\n"
 stmt: ASGNP1(VREGP,reg)  "# write register\n"
-
+stmt: ASGNI4(VREGP,reg)  "# write register\n"
+stmt: ASGNU4(VREGP,reg)  "# write register\n"
+stmt: ASGNP4(VREGP,reg)  "# write register\n"
 
 reg: CNSTI1  "SETR %c %a\n"  1
 reg: CNSTU1  "SETR %c %a\n"  1
 reg: CNSTP1  "SETR %c %a\n"  1
+reg: CNSTI4  "SETR %c %a\n"  1
+reg: CNSTU4  "SETR %c %a\n"  1
+reg: CNSTP4  "SETR %c %a\n"  1
 
 acon: CNSTI1   "%a"
 acon: CNSTU1   "%a"
 acon: CNSTP1   "%a"
+acon: CNSTI4   "%a"
+acon: CNSTU4   "%a"
+acon: CNSTP4   "%a"
 acon: ADDRGP1  "%a"
+acon: ADDRGP4  "%a"
 
 reg: acon  "SETR %c %0\n"  1
 
 reg: ADDRFP1  "# addr FP\n"  2
 reg: ADDRLP1  "# addr LP\n"  2
+reg: ADDRFP4  "# addr FP\n"  2
+reg: ADDRLP4  "# addr LP\n"  2
 
-reg: INDIRI1(reg)     "MEMREADRR %c %0\n"  1
-reg: INDIRU1(reg)     "MEMREADRR %c %0\n"  1
-reg: INDIRP1(reg)     "MEMREADRR %c %0\n"  1
+reg: INDIRI1(reg)     "MEMGET8 %c %0\n"   1
+reg: INDIRU1(reg)     "MEMGET8 %c %0\n"   1
 
-stmt: ASGNI1(reg,reg)  "MEMSETRR %1 %0\n"  1
-stmt: ASGNU1(reg,reg)  "MEMSETRR %1 %0\n"  1
-stmt: ASGNP1(reg,reg)  "MEMSETRR %1 %0\n"  1
+reg: INDIRI4(reg)     "MEMREADRR %c %0\n"  1
+reg: INDIRU4(reg)     "MEMREADRR %c %0\n"  1
+reg: INDIRP4(reg)     "MEMREADRR %c %0\n"  1
+
+stmt: ASGNI1(reg,reg)  "MEMSET8 %1 %0\n"   1
+stmt: ASGNU1(reg,reg)  "MEMSET8 %1 %0\n"   1
+
+stmt: ASGNI4(reg,reg)  "MEMSETRR %1 %0\n"  1
+stmt: ASGNU4(reg,reg)  "MEMSETRR %1 %0\n"  1
+stmt: ASGNP4(reg,reg)  "MEMSETRR %1 %0\n"  1
 
 reg: ADDI1(reg,reg)    "# add\n"  2
 reg: ADDU1(reg,reg)    "# add\n"  2
 reg: ADDP1(reg,reg)    "# add\n"  2
+reg: ADDI4(reg,reg)    "# add\n"  2
+reg: ADDU4(reg,reg)    "# add\n"  2
+reg: ADDP4(reg,reg)    "# add\n"  2
 
 reg: SUBI1(reg,reg)    "# sub\n"  2
 reg: SUBU1(reg,reg)    "# sub\n"  2
 reg: SUBP1(reg,reg)    "# sub\n"  2
+reg: SUBI4(reg,reg)    "# sub\n"  2
+reg: SUBU4(reg,reg)    "# sub\n"  2
+reg: SUBP4(reg,reg)    "# sub\n"  2
 
 reg: MULI1(reg,reg)    "# mul\n"  3
 reg: MULU1(reg,reg)    "# mul\n"  3
+reg: MULI4(reg,reg)    "# mul\n"  3
+reg: MULU4(reg,reg)    "# mul\n"  3
 
 reg: DIVI1(reg,reg)    "# div\n"  35
 reg: DIVU1(reg,reg)    "# div\n"  35
+reg: DIVI4(reg,reg)    "# div\n"  35
+reg: DIVU4(reg,reg)    "# div\n"  35
 
 reg: MODI1(reg,reg)    "# mod\n"  35
 reg: MODU1(reg,reg)    "# mod\n"  35
+reg: MODI4(reg,reg)    "# mod\n"  35
+reg: MODU4(reg,reg)    "# mod\n"  35
 
 reg: NEGI1(reg)        "# neg\n"  2
+reg: NEGI4(reg)        "# neg\n"  2
 
 reg: BANDI1(reg,reg)   "# and\n"  2
 reg: BANDU1(reg,reg)   "# and\n"  2
@@ -274,8 +416,19 @@ reg: BXORU1(reg,reg)   "# xor\n"  2
 reg: BCOMI1(reg)       "# notr\n" 1
 reg: BCOMU1(reg)       "# notr\n" 1
 
+reg: BANDI4(reg,reg)   "# and\n"  2
+reg: BANDU4(reg,reg)   "# and\n"  2
+reg: BORI4(reg,reg)    "# or\n"   2
+reg: BORU4(reg,reg)    "# or\n"   2
+reg: BXORI4(reg,reg)   "# xor\n"  2
+reg: BXORU4(reg,reg)   "# xor\n"  2
+reg: BCOMI4(reg)       "# notr\n" 1
+reg: BCOMU4(reg)       "# notr\n" 1
+
 rc5: CNSTI1  "%a"  range(a, 0, 31)
 rc5: CNSTU1  "%a"  range(a, 0, 31)
+rc5: CNSTI4  "%a"  range(a, 0, 31)
+rc5: CNSTU4  "%a"  range(a, 0, 31)
 
 reg: LSHI1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
 reg: LSHU1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
@@ -286,13 +439,23 @@ reg: RSHU1(reg,rc5)    "COPY %c %0\nSHRV %c %1\n"   2
 reg: RSHI1(reg,reg)    "# rsha_var\n" 2
 reg: RSHU1(reg,reg)    "# rshl_var\n" 2
 
+reg: LSHI4(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHU4(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHI4(reg,reg)    "# lsh_var\n"  2
+reg: LSHU4(reg,reg)    "# lsh_var\n"  2
+reg: RSHI4(reg,rc5)    "COPY %c %0\nSHRAV %c %1\n"  2
+reg: RSHU4(reg,rc5)    "COPY %c %0\nSHRV %c %1\n"   2
+reg: RSHI4(reg,reg)    "# rsha_var\n" 2
+reg: RSHU4(reg,reg)    "# rshl_var\n" 2
+
 reg: LOADI1(reg)  "COPY %c %0\n"  move(a)
 reg: LOADU1(reg)  "COPY %c %0\n"  move(a)
 reg: LOADI2(reg)  "COPY %c %0\n"  move(a)
 reg: LOADU2(reg)  "COPY %c %0\n"  move(a)
-reg: LOADI1(reg)  "COPY %c %0\n"  move(a)
 reg: LOADP1(reg)  "COPY %c %0\n"  move(a)
-reg: LOADU1(reg)  "COPY %c %0\n"  move(a)
+reg: LOADI4(reg)  "COPY %c %0\n"  move(a)
+reg: LOADU4(reg)  "COPY %c %0\n"  move(a)
+reg: LOADP4(reg)  "COPY %c %0\n"  move(a)
 
 reg: CVII1(reg)  "COPY %c %0\n"  move(a)
 reg: CVUI1(reg)  "COPY %c %0\n"  move(a)
@@ -301,6 +464,14 @@ reg: CVUU1(reg)  "COPY %c %0\n"  move(a)
 reg: CVPU1(reg)  "COPY %c %0\n"  move(a)
 reg: CVUP1(reg)  "COPY %c %0\n"  move(a)
 reg: CVPP1(reg)  "COPY %c %0\n"  move(a)
+
+reg: CVII4(reg)  "COPY %c %0\n"  move(a)
+reg: CVUI4(reg)  "COPY %c %0\n"  move(a)
+reg: CVIU4(reg)  "COPY %c %0\n"  move(a)
+reg: CVUU4(reg)  "COPY %c %0\n"  move(a)
+reg: CVPU4(reg)  "COPY %c %0\n"  move(a)
+reg: CVUP4(reg)  "COPY %c %0\n"  move(a)
+reg: CVPP4(reg)  "COPY %c %0\n"  move(a)
 
 stmt: EQI1(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"    2
 stmt: EQU1(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"    2
@@ -317,6 +488,21 @@ stmt: LEU1(reg,reg)   "CMPRR %0 %1\nJMPULE %a:\n"    2
 stmt: GTU1(reg,reg)   "CMPRR %0 %1\nJMPUGT %a:\n"    2
 stmt: GEU1(reg,reg)   "CMPRR %0 %1\nJMPUGE %a:\n"    2
 
+stmt: EQI4(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"    2
+stmt: EQU4(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"    2
+stmt: NEI4(reg,reg)   "CMPRR %0 %1\nJMPNE %a:\n"   2
+stmt: NEU4(reg,reg)   "CMPRR %0 %1\nJMPNE %a:\n"   2
+
+stmt: LTI4(reg,reg)   "CMPRR %0 %1\nJMPLT %a:\n"   2
+stmt: LEI4(reg,reg)   "CMPRR %0 %1\nJMPLE %a:\n"   2
+stmt: GTI4(reg,reg)   "CMPRR %0 %1\nJMPGT %a:\n"   2
+stmt: GEI4(reg,reg)   "CMPRR %0 %1\nJMPGE %a:\n"   2
+
+stmt: LTU4(reg,reg)   "CMPRR %0 %1\nJMPULT %a:\n"   2
+stmt: LEU4(reg,reg)   "CMPRR %0 %1\nJMPULE %a:\n"    2
+stmt: GTU4(reg,reg)   "CMPRR %0 %1\nJMPUGT %a:\n"    2
+stmt: GEU4(reg,reg)   "CMPRR %0 %1\nJMPUGE %a:\n"    2
+
 stmt: LABELV           "%a:\n"
 stmt: JUMPV(acon)      "JMP %0:\n"     1
 stmt: JUMPV(reg)       "JMPR %0\n"    1
@@ -331,14 +517,28 @@ reg:  CALLU1(reg)       "CALLR %0\n"    2
 reg:  CALLP1(reg)       "CALLR %0\n"    2
 stmt: CALLV(reg)        "CALLR %0\n"    2
 
+reg:  CALLI4(acon)      "CALL %0:\n"    1
+reg:  CALLU4(acon)      "CALL %0:\n"    1
+reg:  CALLP4(acon)      "CALL %0:\n"    1
+
+reg:  CALLI4(reg)       "CALLR %0\n"    2
+reg:  CALLU4(reg)       "CALLR %0\n"    2
+reg:  CALLP4(reg)       "CALLR %0\n"    2
+
 stmt: RETI1(reg)       "# ret\n"      1
 stmt: RETU1(reg)       "# ret\n"      1
 stmt: RETP1(reg)       "# ret\n"      1
 stmt: RETV(reg)        "# ret\n"      1
+stmt: RETI4(reg)       "# ret\n"      1
+stmt: RETU4(reg)       "# ret\n"      1
+stmt: RETP4(reg)       "# ret\n"      1
 
 stmt: ARGI1(reg)       "# arg\n"      1
 stmt: ARGU1(reg)       "# arg\n"      1
 stmt: ARGP1(reg)       "# arg\n"      1
+stmt: ARGI4(reg)       "# arg\n"      1
+stmt: ARGU4(reg)       "# arg\n"      1
+stmt: ARGP4(reg)       "# arg\n"      1
 
 stmt: ARGB(INDIRB(reg))       "# argb %0\n"      1
 stmt: ASGNB(reg,INDIRB(reg))  "# asgnb %0 %1\n"  1
@@ -398,7 +598,6 @@ static Symbol rmap(int opk) {
  * emit2 - called for each instruction to handle special templates
  *
  * Templates starting with "# " are pseudo-instructions handled here.
- * This avoids encoding complex multi-instruction sequences in templates.
  */
 static void emit2(Node p) {
     int dst = -1;
@@ -410,9 +609,9 @@ static void emit2(Node p) {
 
     switch (op) {
 
-    /* --- Address computation for frame-relative access --- */
+    /* --- Address computation for frame-relative access (byte offsets) --- */
     case ADDRF+P: {
-        /* Parameter address: FP + off (off is always negative) */
+        /* Parameter address: FP + off (off is negative bytes from FP) */
         int off = p->syms[0]->x.offset;
         print("COPY %s P\nMINUSV %s %s\n",
             ireg[dst]->x.name, ireg[dst]->x.name,
@@ -420,7 +619,7 @@ static void emit2(Node p) {
         break;
     }
     case ADDRL+P: {
-        /* Local variable address: FP + off (off is always negative) */
+        /* Local variable address: FP + off (off is negative bytes from FP) */
         int off = p->syms[0]->x.offset;
         print("COPY %s P\nMINUSV %s %s\n",
             ireg[dst]->x.name, ireg[dst]->x.name,
@@ -532,13 +731,15 @@ static void emit2(Node p) {
         break;
     }
 
-    /* --- Function arguments --- */
+    /* --- Function arguments ---
+     * Overflow args (index >= 4) are stored at byte offsets from SP.
+     * stkoff is the byte offset returned by mkactual(4,4): 0, 4, 8, ...
+     */
     case ARG+I: case ARG+U: case ARG+P: {
         int argno = p->x.argno;
         if (argno >= 4) {
-            /* Stack argument: store at offset from hardware SP */
-            int src = getregnum(p->x.kids[0]);
-            int stkoff = p->syms[2]->u.c.v.i; /* already in words */
+            int src    = getregnum(p->x.kids[0]);
+            int stkoff = p->syms[2]->u.c.v.i; /* byte offset */
             print("GETSP N\n");
             print("STIDX %s N %d\n", ireg[src]->x.name, stkoff);
         }
@@ -604,8 +805,9 @@ static void doarg(Node p) {
     if (argoffset == 0)
         argno = 0;
     p->x.argno = argno++;
-    /* With size=1, each arg is 1 word. Align to 1. */
-    p->syms[2] = intconst(mkactual(1, p->syms[0]->u.c.v.i));
+    /* Each arg is 4 bytes, aligned to 4 bytes.
+     * mkactual returns the byte offset for this arg: 0, 4, 8, ... */
+    p->syms[2] = intconst(mkactual(4, 4));
 }
 
 static void local(Symbol p) {
@@ -627,9 +829,10 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     varargs = variadic(f->type)
         || numparams > 0 && strcmp(callee[numparams-1]->name, "va_alist") == 0;
 
-    /* Process parameters — each is 1 word.
-     * Offsets are negated (like mkauto) so all frame access uses FP + off
-     * where off is always negative: param 0 at FP-1, param 1 at FP-2, etc.
+    /* Process parameters — each is 4 bytes (sizeof(int)=4).
+     * lcc computes byte offsets using roundup(offset + type->size, type->align).
+     * Offsets are negated so frame access is always FP + negative_offset:
+     *   param 0: FP-4, param 1: FP-8, etc.
      */
     for (i = 0; callee[i]; i++) {
         Symbol p = callee[i];
@@ -665,22 +868,24 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         }
     }
 
-    /* Generate code — offset is NOT reset so locals start after param slots */
+    /* Generate code — offset not reset so locals follow param slots */
     gencode(caller, callee);
 
     /* Ensure maxoffset covers all param frame slots */
-    if (maxoffset < numparams)
-        maxoffset = numparams;
+    if (maxoffset < numparams * 4)
+        maxoffset = numparams * 4;
 
     /* Count callee-saved registers used */
-    usedmask[IREG] &= INTVAR; /* only care about callee-saved regs */
+    usedmask[IREG] &= INTVAR;
     saved = 0;
     for (i = REG_E; i <= REG_H; i++)
         if (usedmask[IREG] & (1 << i))
             saved++;
 
-    /* Frame size in words: locals/spills + saved regs + outgoing args */
-    framesize_actual = maxargoffset + maxoffset + saved;
+    /* Frame size in bytes: locals/spills + saved regs + outgoing args.
+     * ADDSP takes a byte count (hardware is byte-addressed).
+     */
+    framesize_actual = maxargoffset + maxoffset + saved * 4;
 
     /* === Emit prologue === */
     curfunc = f->x.name;
@@ -689,28 +894,28 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
 
     /* Save old FP and set up new frame using hardware stack */
     print("PUSH P\n");              /* save old FP on DDR2 stack */
-    print("GETSP P\n");             /* FP = SP */
+    print("GETSP P\n");             /* FP = SP (points to saved old FP) */
 
-    /* Allocate frame */
+    /* Allocate frame: ADDSP takes byte count (negative = grow stack) */
     if (framesize_actual > 0)
         print("ADDSP %s\n", imm(-framesize_actual));
 
-    /* Save callee-saved registers (below locals in frame) */
+    /* Save callee-saved registers at byte offsets below locals.
+     * Slot 0: FP-(maxoffset+4), slot 1: FP-(maxoffset+8), etc.
+     */
     {
         int slot = 0;
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
                 print("STIDX %s P %s\n", ireg[i]->x.name,
-                    imm(-(maxoffset + slot + 1)));
+                    imm(-(maxoffset + (slot + 1) * 4)));
                 slot++;
             }
         }
     }
 
     /* Save register arguments (0-3) to frame if needed.
-     * Store when callee is AUTO (body reads from frame),
-     * or when caller/callee differ (gencode inserts a transfer
-     * that loads from the frame slot).
+     * p->x.offset is a negative byte offset from FP.
      */
     for (i = 0; i < 4 && callee[i]; i++) {
         Symbol p = callee[i];
@@ -726,10 +931,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         }
     }
 
-    /* Move register args to their callee-saved register variables.
-     * When askregvar assigned a param to a callee-saved reg (E-H),
-     * the value is still in the argument reg (A-D).  Generate COPY.
-     */
+    /* Move register args to their callee-saved register variables. */
     for (i = 0; i < 4 && callee[i]; i++) {
         Symbol p = callee[i];
         if (p->sclass == REGISTER && p->x.regnode
@@ -740,16 +942,18 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     }
 
     /* Copy overflow arguments (>=4) from caller's stack to local frame.
-     * After CALL (pushes ret addr) + PUSH P (saves old FP) + GETSP P:
-     *   caller_SP = FP + 2
-     *   overflow arg with stkoff is at FP + stkoff + 2
-     * For arg index i, stkoff = i (since each arg is 1 word).
+     * After CALL (pushes ret addr) + PUSH P (saves old FP):
+     *   FP+0  = saved old FP  (PUSH P)
+     *   FP+4  = return addr   (CALL pushed it)
+     *   FP+8  = overflow arg 0 (first stack arg)
+     *   FP+12 = overflow arg 1
+     * LDIDX uses byte offsets; each entry is 4 bytes (1 word).
      */
     for (i = 4; i < numparams; i++) {
         Symbol p = callee[i];
         if (p->sclass != REGISTER) {
             print("// copy overflow arg %d\n", i);
-            print("LDIDX N P %d\n", i + 2);
+            print("LDIDX N P %d\n", (i - 4) * 4 + 8);
             print("STIDX N P %s\n", imm(p->x.offset));
         }
     }
@@ -763,7 +967,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
                 print("LDIDX %s P %s\n", ireg[i]->x.name,
-                    imm(-(maxoffset + slot + 1)));
+                    imm(-(maxoffset + (slot + 1) * 4)));
                 slot++;
             }
         }
@@ -805,10 +1009,18 @@ static void defaddress(Symbol p) {
 }
 
 static void defstring(int n, char *str) {
-    char *s;
-    /* Each character occupies one 32-bit word (CHAR_BIT=32) */
-    for (s = str; s < str + n; s++)
-        print(".word 0x%x\n", (*s) & 0xFF);
+    int i;
+    unsigned int word;
+    /* Pack 4 bytes big-endian into each 32-bit word.
+     * "ABCD" -> 0x41424344.  Final word is zero-padded.
+     * Null terminator is included in n by lcc. */
+    for (i = 0; i < n; i += 4) {
+        word  = ((unsigned char)str[i+0])                           << 24;
+        word |= (i+1 < n ? (unsigned char)str[i+1] : 0u)           << 16;
+        word |= (i+2 < n ? (unsigned char)str[i+2] : 0u)           <<  8;
+        word |= (i+3 < n ? (unsigned char)str[i+3] : 0u);
+        print(".word 0x%x\n", word);
+    }
 }
 
 static void export(Symbol p) {
@@ -843,9 +1055,9 @@ static void address(Symbol q, Symbol p, long n) {
 
 static void global(Symbol p) {
     if (p->u.seg == BSS) {
-        /* Emit label so SETR can reference it, then allocate space */
+        /* p->type->size is in bytes; assembler .space takes words */
         print("%s:\n", p->x.name);
-        print("#%s %d\n", p->x.name, p->type->size);
+        print("#%s %d\n", p->x.name, (p->type->size + 3) / 4);
     } else {
         print("%s:\n", p->x.name);
     }
@@ -857,20 +1069,29 @@ static void segment(int n) {
 }
 
 static void space(int n) {
+    /* n is in bytes; assembler .space takes words */
     if (cseg != BSS)
-        print(".space %d\n", n);  /* n is in words (size=1) */
+        print(".space %d\n", (n + 3) / 4);
 }
 
-/* === Block copy support === */
+/* === Block copy support ===
+ * blkfetch/blkstore use byte offsets (STIDX/LDIDX take byte offsets).
+ * size is the alignment unit in bytes.
+ */
 
 static void blkfetch(int size, int off, int reg, int tmp) {
-    assert(size == 1);
-    print("LDIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off);
+    /* off is a byte offset; use word load for 4-byte aligned blocks */
+    if (size == 4)
+        print("LDIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 4);
+    else
+        print("MEMGET8 %s %s\n", ireg[tmp]->x.name, ireg[reg]->x.name);
 }
 
 static void blkstore(int size, int off, int reg, int tmp) {
-    assert(size == 1);
-    print("STIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off);
+    if (size == 4)
+        print("STIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 4);
+    else
+        print("MEMSET8 %s %s\n", ireg[tmp]->x.name, ireg[reg]->x.name);
 }
 
 static void blkloop(int dreg, int doff, int sreg, int soff, int size, int tmps[]) {
@@ -878,8 +1099,9 @@ static void blkloop(int dreg, int doff, int sreg, int soff, int size, int tmps[]
     print("SETR %s %d\n", ireg[tmps[2]]->x.name, size);
     print("%s_SH_%d:\n", curfunc, lab);
     blkcopy(dreg, doff, sreg, soff, 1, tmps);
-    print("INCR %s\n", ireg[sreg]->x.name);
-    print("INCR %s\n", ireg[dreg]->x.name);
+    /* Advance byte addresses by 4 (one word per iteration) */
+    print("ADDV %s 4\n", ireg[sreg]->x.name);
+    print("ADDV %s 4\n", ireg[dreg]->x.name);
     print("DECR %s\n", ireg[tmps[2]]->x.name);
     print("CMPRV %s 0\n", ireg[tmps[2]]->x.name);
     print("JMPNZ %s_SH_%d:\n", curfunc, lab);
@@ -892,23 +1114,23 @@ static char rcsid[] = "$Id: klacpu.md$";
 /* === THE INTERFACE RECORD === */
 
 Interface klacpuIR = {
-    1, 1, 0,  /* char:     size=1, align=1 (one word per addressable unit) */
-    1, 1, 0,  /* short:    size=1, align=1 */
-    1, 1, 0,  /* int:      size=1, align=1 */
-    1, 1, 0,  /* long:     size=1, align=1 */
-    1, 1, 0,  /* longlong: size=1, align=1 */
-    1, 1, 1,  /* float:    size=1, align=1, outofline=1 (no FP hw) */
-    1, 1, 1,  /* double:   size=1, align=1, outofline=1 */
-    1, 1, 1,  /* longdouble: same */
-    1, 1, 0,  /* T*:       size=1, align=1 */
-    0, 1, 0,  /* struct:   size=0, align=1 */
-    0,        /* little_endian = 0 (big-endian) */
-    0,        /* mulops_calls = 0 (hardware mul/div for ints) */
+    1, 1, 0,  /* char:       size=1 byte, align=1 byte */
+    4, 4, 0,  /* short:      size=4 bytes (no 16-bit hw; treated as int) */
+    4, 4, 0,  /* int:        size=4 bytes, align=4 bytes */
+    4, 4, 0,  /* long:       size=4 bytes, align=4 bytes */
+    4, 4, 0,  /* longlong:   size=4 bytes (no 64-bit hw; same as long) */
+    4, 4, 1,  /* float:      size=4 bytes, align=4, outofline=1 (no FP hw) */
+    4, 4, 1,  /* double:     size=4 bytes, align=4, outofline=1 */
+    4, 4, 1,  /* longdouble: same */
+    4, 4, 0,  /* T*:         size=4 bytes, align=4 bytes */
+    0, 4, 0,  /* struct:     size=0, align=4 bytes */
+    0,        /* little_endian = 0 (big-endian byte packing in strings) */
+    0,        /* mulops_calls = 0 (hardware mul/div) */
     0,        /* wants_callb = 0 */
     1,        /* wants_argb = 1 */
     1,        /* left_to_right = 1 */
     0,        /* wants_dag = 0 */
-    0,        /* unsigned_char = 0 */
+    1,        /* unsigned_char = 1 (MEMGET8 zero-extends; no sign-ext needed) */
     address,
     blockbeg,
     blockend,
@@ -929,7 +1151,7 @@ Interface klacpuIR = {
     space,
     0, 0, 0, 0, 0, 0, 0,  /* no stab/debug */
     {
-        1,      /* max_unaligned_load = 1 word */
+        4,      /* max_unaligned_load = 4 bytes (word) */
         rmap,
         blkfetch, blkstore, blkloop,
         _label,
