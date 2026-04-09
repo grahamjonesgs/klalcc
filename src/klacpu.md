@@ -1,15 +1,16 @@
 %{
 /*
- * lcc backend for FPGA_CPU_32_DDR_cache
+ * lcc backend for FPGA_CPU_64_DDR_cache
  *
- * Byte-addressed CPU (CHAR_BIT=8). All registers are 32-bit.
+ * Byte-addressed CPU (CHAR_BIT=8). All registers are 64-bit.
  * sizeof(char)=1, sizeof(short)=sizeof(int)=sizeof(long)=sizeof(T*)=4.
+ * Each spill/frame slot is 8 bytes (one 64-bit register).
  *
- * New memory instructions:
- *   MEMGET8 dst src  — load 1 byte (zero-extended) from byte address in src
- *   MEMSET8 src dst  — store low byte of src to byte address in dst
- *   MEMREADRR dst src — load 4-byte word from word-aligned byte address in src
- *   MEMSETRR src dst  — store 4-byte word to word-aligned byte address in dst
+ * Memory instructions:
+ *   MEMGET8  dst src  — load 1 byte (zero-extended) from byte address in src
+ *   MEMSET8  src dst  — store low byte of src to byte address in dst
+ *   MEMGET64 dst src  — load 8-byte word from byte address in src into dst
+ *   MEMSET64 src dst  — store 8-byte word to byte address in dst
  *
  * Register convention:
  *   A-D  (0-3)   argument passing, caller-saved temps
@@ -364,16 +365,16 @@ reg: ADDRLP4  "# addr LP\n"  2
 reg: INDIRI1(reg)     "MEMGET8 %c %0\n"   1
 reg: INDIRU1(reg)     "MEMGET8 %c %0\n"   1
 
-reg: INDIRI4(reg)     "MEMREADRR %c %0\n"  1
-reg: INDIRU4(reg)     "MEMREADRR %c %0\n"  1
-reg: INDIRP4(reg)     "MEMREADRR %c %0\n"  1
+reg: INDIRI4(reg)     "MEMGET64 %c %0\n"   1
+reg: INDIRU4(reg)     "MEMGET64 %c %0\n"   1
+reg: INDIRP4(reg)     "MEMGET64 %c %0\n"   1
 
 stmt: ASGNI1(reg,reg)  "MEMSET8 %1 %0\n"   1
 stmt: ASGNU1(reg,reg)  "MEMSET8 %1 %0\n"   1
 
-stmt: ASGNI4(reg,reg)  "MEMSETRR %1 %0\n"  1
-stmt: ASGNU4(reg,reg)  "MEMSETRR %1 %0\n"  1
-stmt: ASGNP4(reg,reg)  "MEMSETRR %1 %0\n"  1
+stmt: ASGNI4(reg,reg)  "MEMSET64 %1 %0\n"  1
+stmt: ASGNU4(reg,reg)  "MEMSET64 %1 %0\n"  1
+stmt: ASGNP4(reg,reg)  "MEMSET64 %1 %0\n"  1
 
 reg: ADDI1(reg,reg)    "# add\n"  2
 reg: ADDU1(reg,reg)    "# add\n"  2
@@ -425,26 +426,26 @@ reg: BXORU4(reg,reg)   "# xor\n"  2
 reg: BCOMI4(reg)       "# notr\n" 1
 reg: BCOMU4(reg)       "# notr\n" 1
 
-rc5: CNSTI1  "%a"  range(a, 0, 31)
-rc5: CNSTU1  "%a"  range(a, 0, 31)
-rc5: CNSTI4  "%a"  range(a, 0, 31)
-rc5: CNSTU4  "%a"  range(a, 0, 31)
+rc6: CNSTI1  "%a"  range(a, 0, 63)
+rc6: CNSTU1  "%a"  range(a, 0, 63)
+rc6: CNSTI4  "%a"  range(a, 0, 63)
+rc6: CNSTU4  "%a"  range(a, 0, 63)
 
-reg: LSHI1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
-reg: LSHU1(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHI1(reg,rc6)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHU1(reg,rc6)    "COPY %c %0\nSHLV %c %1\n"  2
 reg: LSHI1(reg,reg)    "# lsh_var\n"  2
 reg: LSHU1(reg,reg)    "# lsh_var\n"  2
-reg: RSHI1(reg,rc5)    "COPY %c %0\nSHRAV %c %1\n"  2
-reg: RSHU1(reg,rc5)    "COPY %c %0\nSHRV %c %1\n"   2
+reg: RSHI1(reg,rc6)    "COPY %c %0\nSHRAV %c %1\n"  2
+reg: RSHU1(reg,rc6)    "COPY %c %0\nSHRV %c %1\n"   2
 reg: RSHI1(reg,reg)    "# rsha_var\n" 2
 reg: RSHU1(reg,reg)    "# rshl_var\n" 2
 
-reg: LSHI4(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
-reg: LSHU4(reg,rc5)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHI4(reg,rc6)    "COPY %c %0\nSHLV %c %1\n"  2
+reg: LSHU4(reg,rc6)    "COPY %c %0\nSHLV %c %1\n"  2
 reg: LSHI4(reg,reg)    "# lsh_var\n"  2
 reg: LSHU4(reg,reg)    "# lsh_var\n"  2
-reg: RSHI4(reg,rc5)    "COPY %c %0\nSHRAV %c %1\n"  2
-reg: RSHU4(reg,rc5)    "COPY %c %0\nSHRV %c %1\n"   2
+reg: RSHI4(reg,rc6)    "COPY %c %0\nSHRAV %c %1\n"  2
+reg: RSHU4(reg,rc6)    "COPY %c %0\nSHRV %c %1\n"   2
 reg: RSHI4(reg,reg)    "# rsha_var\n" 2
 reg: RSHU4(reg,reg)    "# rshl_var\n" 2
 
@@ -707,7 +708,7 @@ static void emit2(Node p) {
         int src0 = getregnum(p->kids[0]);
         if (dst != src0)
             print("COPY %s %s\n", ireg[dst]->x.name, ireg[src0]->x.name);
-        print("XORV %s 0xFFFFFFFF\n", ireg[dst]->x.name);
+        print("NOTR %s\n", ireg[dst]->x.name);
         break;
     }
 
@@ -733,7 +734,7 @@ static void emit2(Node p) {
 
     /* --- Function arguments ---
      * Overflow args (index >= 4) are stored at byte offsets from SP.
-     * stkoff is the byte offset returned by mkactual(4,4): 0, 4, 8, ...
+     * stkoff is the byte offset returned by mkactual(8,8): 0, 8, 16, ...
      */
     case ARG+I: case ARG+U: case ARG+P: {
         int argno = p->x.argno;
@@ -741,7 +742,7 @@ static void emit2(Node p) {
             int src    = getregnum(p->x.kids[0]);
             int stkoff = p->syms[2]->u.c.v.i; /* byte offset */
             print("GETSP N\n");
-            print("STIDX %s N %d\n", ireg[src]->x.name, stkoff);
+            print("STIDX64 %s N %d\n", ireg[src]->x.name, stkoff);
         }
         break;
     }
@@ -807,7 +808,7 @@ static void doarg(Node p) {
     p->x.argno = argno++;
     /* Each arg is 4 bytes, aligned to 4 bytes.
      * mkactual returns the byte offset for this arg: 0, 4, 8, ... */
-    p->syms[2] = intconst(mkactual(4, 4));
+    p->syms[2] = intconst(mkactual(8, 8));
 }
 
 static void local(Symbol p) {
@@ -885,7 +886,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     /* Frame size in bytes: locals/spills + saved regs + outgoing args.
      * ADDSP takes a byte count (hardware is byte-addressed).
      */
-    framesize_actual = maxargoffset + maxoffset + saved * 4;
+    framesize_actual = maxargoffset + maxoffset + saved * 8;
 
     /* === Emit prologue === */
     curfunc = f->x.name;
@@ -907,8 +908,8 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         int slot = 0;
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
-                print("STIDX %s P %s\n", ireg[i]->x.name,
-                    imm(-(maxoffset + (slot + 1) * 4)));
+                print("STIDX64 %s P %s\n", ireg[i]->x.name,
+                    imm(-(maxoffset + (slot + 1) * 8)));
                 slot++;
             }
         }
@@ -924,7 +925,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
             || p->sclass != q->sclass
             || p->type != q->type) {
             print("// save arg %d\n", i);
-            print("STIDX %s P %s\n", ireg[i]->x.name,
+            print("STIDX64 %s P %s\n", ireg[i]->x.name,
                 imm(p->x.offset));
             if (p->sclass != REGISTER)
                 p->sclass = q->sclass = AUTO;
@@ -953,8 +954,8 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         Symbol p = callee[i];
         if (p->sclass != REGISTER) {
             print("// copy overflow arg %d\n", i);
-            print("LDIDX N P %d\n", (i - 4) * 4 + 8);
-            print("STIDX N P %s\n", imm(p->x.offset));
+            print("LDIDX64 N P %d\n", (i - 4) * 8 + 16);
+            print("STIDX64 N P %s\n", imm(p->x.offset));
         }
     }
 
@@ -966,8 +967,8 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         int slot = 0;
         for (i = REG_E; i <= REG_H; i++) {
             if (usedmask[IREG] & (1 << i)) {
-                print("LDIDX %s P %s\n", ireg[i]->x.name,
-                    imm(-(maxoffset + (slot + 1) * 4)));
+                print("LDIDX64 %s P %s\n", ireg[i]->x.name,
+                    imm(-(maxoffset + (slot + 1) * 8)));
                 slot++;
             }
         }
@@ -1057,7 +1058,7 @@ static void global(Symbol p) {
     if (p->u.seg == BSS) {
         /* p->type->size is in bytes; assembler .space takes words */
         print("%s:\n", p->x.name);
-        print("#%s %d\n", p->x.name, (p->type->size + 3) / 4);
+        print("#%s %d\n", p->x.name, (p->type->size + 7) / 8);
     } else {
         print("%s:\n", p->x.name);
     }
@@ -1071,7 +1072,7 @@ static void segment(int n) {
 static void space(int n) {
     /* n is in bytes; assembler .space takes words */
     if (cseg != BSS)
-        print(".space %d\n", (n + 3) / 4);
+        print(".space %d\n", (n + 7) / 8);
 }
 
 /* === Block copy support ===
@@ -1082,14 +1083,14 @@ static void space(int n) {
 static void blkfetch(int size, int off, int reg, int tmp) {
     /* off is a byte offset; use word load for 4-byte aligned blocks */
     if (size == 4)
-        print("LDIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 4);
+        print("LDIDX64 %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 8);
     else
         print("MEMGET8 %s %s\n", ireg[tmp]->x.name, ireg[reg]->x.name);
 }
 
 static void blkstore(int size, int off, int reg, int tmp) {
     if (size == 4)
-        print("STIDX %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 4);
+        print("STIDX64 %s %s %d\n", ireg[tmp]->x.name, ireg[reg]->x.name, off * 8);
     else
         print("MEMSET8 %s %s\n", ireg[tmp]->x.name, ireg[reg]->x.name);
 }
@@ -1100,8 +1101,8 @@ static void blkloop(int dreg, int doff, int sreg, int soff, int size, int tmps[]
     print("%s_SH_%d:\n", curfunc, lab);
     blkcopy(dreg, doff, sreg, soff, 1, tmps);
     /* Advance byte addresses by 4 (one word per iteration) */
-    print("ADDV %s 4\n", ireg[sreg]->x.name);
-    print("ADDV %s 4\n", ireg[dreg]->x.name);
+    print("ADDV %s 8\n", ireg[sreg]->x.name);
+    print("ADDV %s 8\n", ireg[dreg]->x.name);
     print("DECR %s\n", ireg[tmps[2]]->x.name);
     print("CMPRV %s 0\n", ireg[tmps[2]]->x.name);
     print("JMPNZ %s_SH_%d:\n", curfunc, lab);
