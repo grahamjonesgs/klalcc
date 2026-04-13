@@ -1,0 +1,6 @@
+281: undeclared identifier `MALLOC_HDRSIZE'
+281: undeclared identifier `MALLOC_MIN_SPLIT'
+308: undeclared identifier `MALLOC_HDRSIZE'
+329: undeclared identifier `MALLOC_HDRSIZE'
+393: undeclared identifier `MALLOC_HDRSIZE'
+420: undeclared identifier `MALLOC_HDRSIZE'

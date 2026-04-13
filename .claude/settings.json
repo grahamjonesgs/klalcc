@@ -17,10 +17,21 @@
       "Read(//Users/gjonesblackcyton/Documents/src/FPGA_CPU_32_DDR_cache/**)",
       "Read(//Users/gjonesblackcyton/Documents/src/**)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(build/rcc -target=klacpu tests/test_64bit.c)",
+      "Bash(make all:*)",
+      "Bash(make liblcc:*)",
+      "Bash(./build/rcc -target=klacpu lib/libc.c)",
+      "Bash(./build/rcc --help)",
+      "Bash(./build/rcc -v -target=klacpu lib/libc.c)",
+      "Bash(cpp lib/libc.c)",
+      "Bash(./build/rcc -target=klacpu)",
+      "Bash(cpp tests/test_64bit.c)",
+      "Bash(cpp -I. tests/test_64bit.c)"
     ],
     "additionalDirectories": [
-      "/tmp"
+      "/tmp",
+      "/Users/gjonesblackcyton/Documents/src/rust/klausscc/src/klatest"
     ]
   }
 }

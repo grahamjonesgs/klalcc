@@ -434,12 +434,12 @@ stmt: ASGNI4(VREGP,reg)  "# write register\n"
 stmt: ASGNU4(VREGP,reg)  "# write register\n"
 stmt: ASGNP4(VREGP,reg)  "# write register\n"
 
-reg: CNSTI1  "SETR %c %a\n"  1
-reg: CNSTU1  "SETR %c %a\n"  1
-reg: CNSTP1  "SETR %c %a\n"  1
-reg: CNSTI4  "SETR %c %a\n"  1
-reg: CNSTU4  "SETR %c %a\n"  1
-reg: CNSTP4  "SETR %c %a\n"  1
+reg: CNSTI1  "# cnst\n"  1
+reg: CNSTU1  "# cnst\n"  1
+reg: CNSTP1  "# cnst\n"  1
+reg: CNSTI4  "# cnst\n"  1
+reg: CNSTU4  "# cnst\n"  1
+reg: CNSTP4  "# cnst\n"  1
 
 acon: CNSTI1   "%a"
 acon: CNSTU1   "%a"
@@ -647,9 +647,9 @@ stmt: ASGNI8(VREGP,reg)  "# write register\n"
 stmt: ASGNU8(VREGP,reg)  "# write register\n"
 stmt: ASGNP8(VREGP,reg)  "# write register\n"
 
-reg: CNSTI8  "SETR %c %a\n"  1
-reg: CNSTU8  "SETR %c %a\n"  1
-reg: CNSTP8  "SETR %c %a\n"  1
+reg: CNSTI8  "# cnst\n"  1
+reg: CNSTU8  "# cnst\n"  1
+reg: CNSTP8  "# cnst\n"  1
 
 acon: CNSTI8   "%a"
 acon: CNSTU8   "%a"
@@ -831,6 +831,62 @@ static void emit2(Node p) {
         break;
     }
 
+    /* --- Integer constant load (# cnst pseudo-instruction) ---
+     *
+     * SETR sign-extends its 32-bit immediate to 64 bits.  Three cases:
+     *
+     * 1. Value fits as 32-bit signed [-2^31, 2^31-1]: SETR sign-extends
+     *    correctly.  Covers all negative 64-bit values near zero (-1 etc.).
+     *
+     * 2. 32-bit unsigned with bit 31 set [0x80000000, 0xFFFFFFFF]: SETR
+     *    would sign-extend to a negative 64-bit value.  Fix: SETR(val>>1)
+     *    has bit 31 clear, then SHLV 1 [+ ADDV 1 if odd].
+     *
+     * 3. True 64-bit value (bits 32+ non-zero, not case 1): load upper 32
+     *    bits via case 1 or 2, SHLV 32, then add lower 32 bits in safe
+     *    chunks of at most 0x40000000 each.
+     *
+     * specific(CNSTI4) = CNST+I = 21; specific(ADDI4) = ADD+I = 309.
+     */
+    case CNST+I: case CNST+U: case CNST+P: {
+        unsigned long val = (unsigned long)p->syms[0]->u.c.v.u;
+        long sval = (long)val;
+        if (sval >= -2147483648L && sval <= 2147483647L) {
+            /* Case 1: fits as 32-bit signed; SETR sign-extends correctly */
+            print("SETR %s %D\n", ireg[dst]->x.name, sval);
+        } else if ((val >> 32) == 0) {
+            /* Case 2: 32-bit unsigned with bit 31 set */
+            print("SETR %s %U\n", ireg[dst]->x.name, val >> 1);
+            print("SHLV %s 1\n", ireg[dst]->x.name);
+            if (val & 1UL)
+                print("ADDV %s 1\n", ireg[dst]->x.name);
+        } else {
+            /* Case 3: true 64-bit — load hi, shift 32, add lo */
+            unsigned long hi = val >> 32;
+            unsigned long lo = val & 0xFFFFFFFFUL;
+            long shi = (long)(int)hi; /* sign-extend hi's 32 bits */
+            if (shi >= -2147483648L && shi <= 2147483647L) {
+                print("SETR %s %D\n", ireg[dst]->x.name, shi);
+            } else {
+                print("SETR %s %U\n", ireg[dst]->x.name, hi >> 1);
+                print("SHLV %s 1\n", ireg[dst]->x.name);
+                if (hi & 1UL)
+                    print("ADDV %s 1\n", ireg[dst]->x.name);
+            }
+            print("SHLV %s 32\n", ireg[dst]->x.name);
+            if (lo != 0) {
+                /* Add lo in chunks <= 0x40000000 to stay within 31-bit safe range */
+                unsigned long lo_top = lo >> 30; /* 0-3 chunks of 2^30 */
+                unsigned long lo_bot = lo & 0x3FFFFFFFUL;
+                unsigned long i;
+                for (i = 0; i < lo_top; i++)
+                    print("ADDV %s 1073741824\n", ireg[dst]->x.name); /* 0x40000000 */
+                if (lo_bot)
+                    print("ADDV %s %U\n", ireg[dst]->x.name, lo_bot);
+            }
+        }
+        break;
+    }
     /* --- Arithmetic --- */
     case ADD+I: case ADD+U: case ADD+P: {
         int src0 = getregnum(p->kids[0]);
@@ -1157,7 +1213,7 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
         Symbol p = callee[i];
         if (p->sclass != REGISTER) {
             print("// copy overflow arg %d\n", i);
-            print("LDIDX64 N P %d\n", (i - 4) * 8 + 16);
+            print("LDIDX64 N P %d\n", (i - 4) * 8 + 48);
             print("STIDX64 N P %s\n", imm(p->x.offset));
         }
     }
@@ -1213,17 +1269,17 @@ static void defaddress(Symbol p) {
 }
 
 static void defstring(int n, char *str) {
-    int i;
-    unsigned int word;
-    /* Pack 4 bytes big-endian into each 32-bit word.
-     * "ABCD" -> 0x41424344.  Final word is zero-padded.
+    int i, j;
+    unsigned long word;
+    /* Pack 8 bytes big-endian into each 64-bit word.
+     * "ABCDEFGH" -> 0x4142434445464748.  Final word is zero-padded.
      * Null terminator is included in n by lcc. */
-    for (i = 0; i < n; i += 4) {
-        word  = ((unsigned char)str[i+0])                           << 24;
-        word |= (i+1 < n ? (unsigned char)str[i+1] : 0u)           << 16;
-        word |= (i+2 < n ? (unsigned char)str[i+2] : 0u)           <<  8;
-        word |= (i+3 < n ? (unsigned char)str[i+3] : 0u);
-        print(".word 0x%x\n", word);
+    for (i = 0; i < n; i += 8) {
+        word = 0;
+        for (j = 0; j < 8; j++) {
+            word = (word << 8) | (i+j < n ? (unsigned char)str[i+j] : 0u);
+        }
+        print(".word 0x%X\n", word);
     }
 }
 
