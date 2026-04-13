@@ -323,6 +323,102 @@ enum {
 %term LOADP4=4327
 %term LOADU4=4326
 
+/* === Size-8 terms (sizeof(int)=sizeof(void*)=8) === */
+%term CNSTI8=8213
+%term CNSTP8=8215
+%term CNSTU8=8214
+
+%term ARGI8=8229
+%term ARGP8=8231
+%term ARGU8=8230
+
+%term ASGNI8=8245
+%term ASGNP8=8247
+%term ASGNU8=8246
+
+%term INDIRI8=8261
+%term INDIRP8=8263
+%term INDIRU8=8262
+
+%term CVII8=8325
+%term CVIU8=8326
+%term CVPP8=8343
+%term CVPU8=8342
+%term CVUI8=8373
+%term CVUP8=8375
+%term CVUU8=8374
+
+%term NEGI8=8389
+
+%term CALLI8=8405
+%term CALLP8=8407
+%term CALLU8=8406
+
+%term RETI8=8437
+%term RETP8=8439
+%term RETU8=8438
+
+%term ADDRGP8=8455
+%term ADDRFP8=8471
+%term ADDRLP8=8487
+
+%term ADDI8=8501
+%term ADDP8=8503
+%term ADDU8=8502
+
+%term SUBI8=8517
+%term SUBP8=8519
+%term SUBU8=8518
+
+%term LSHI8=8533
+%term LSHU8=8534
+
+%term MODI8=8549
+%term MODU8=8550
+
+%term RSHI8=8565
+%term RSHU8=8566
+
+%term BANDI8=8581
+%term BANDU8=8582
+
+%term BCOMI8=8597
+%term BCOMU8=8598
+
+%term BORI8=8613
+%term BORU8=8614
+
+%term BXORI8=8629
+%term BXORU8=8630
+
+%term DIVI8=8645
+%term DIVU8=8646
+
+%term MULI8=8661
+%term MULU8=8662
+
+%term EQI8=8677
+%term EQU8=8678
+
+%term GEI8=8693
+%term GEU8=8694
+
+%term GTI8=8709
+%term GTU8=8710
+
+%term LEI8=8725
+%term LEU8=8726
+
+%term LTI8=8741
+%term LTU8=8742
+
+%term NEI8=8757
+%term NEU8=8758
+
+%term LOADI8=8421
+%term LOADP8=8423
+%term LOADU8=8422
+
 %%
 
 reg: INDIRI1(VREGP)     "# read register\n"
@@ -543,6 +639,116 @@ stmt: ARGP4(reg)       "# arg\n"      1
 
 stmt: ARGB(INDIRB(reg))       "# argb %0\n"      1
 stmt: ASGNB(reg,INDIRB(reg))  "# asgnb %0 %1\n"  1
+
+/* === Size-8 grammar rules (sizeof(int)=sizeof(void*)=8) === */
+
+reg: INDIRI8(VREGP)   "# read register\n"
+reg: INDIRU8(VREGP)   "# read register\n"
+reg: INDIRP8(VREGP)   "# read register\n"
+
+stmt: ASGNI8(VREGP,reg)  "# write register\n"
+stmt: ASGNU8(VREGP,reg)  "# write register\n"
+stmt: ASGNP8(VREGP,reg)  "# write register\n"
+
+reg: CNSTI8  "SETR %c %a\n"  1
+reg: CNSTU8  "SETR %c %a\n"  1
+reg: CNSTP8  "SETR %c %a\n"  1
+
+acon: CNSTI8   "%a"
+acon: CNSTU8   "%a"
+acon: CNSTP8   "%a"
+acon: ADDRGP8  "%a"
+
+reg: ADDRFP8  "# addr FP\n"  2
+reg: ADDRLP8  "# addr LP\n"  2
+
+reg: INDIRI8(reg)   "MEMGET64 %c %0\n"  1
+reg: INDIRU8(reg)   "MEMGET64 %c %0\n"  1
+reg: INDIRP8(reg)   "MEMGET64 %c %0\n"  1
+
+stmt: ASGNI8(reg,reg)  "MEMSET64 %1 %0\n"  1
+stmt: ASGNU8(reg,reg)  "MEMSET64 %1 %0\n"  1
+stmt: ASGNP8(reg,reg)  "MEMSET64 %1 %0\n"  1
+
+reg: ADDI8(reg,reg)   "# add\n"  2
+reg: ADDU8(reg,reg)   "# add\n"  2
+reg: ADDP8(reg,reg)   "# add\n"  2
+
+reg: SUBI8(reg,reg)   "# sub\n"  2
+reg: SUBU8(reg,reg)   "# sub\n"  2
+reg: SUBP8(reg,reg)   "# sub\n"  2
+
+reg: MULI8(reg,reg)   "# mul\n"  3
+reg: MULU8(reg,reg)   "# mul\n"  3
+
+reg: DIVI8(reg,reg)   "# div\n"  35
+reg: DIVU8(reg,reg)   "# div\n"  35
+
+reg: MODI8(reg,reg)   "# mod\n"  35
+reg: MODU8(reg,reg)   "# mod\n"  35
+
+reg: NEGI8(reg)       "# neg\n"  2
+
+reg: BANDI8(reg,reg)  "# and\n"  2
+reg: BANDU8(reg,reg)  "# and\n"  2
+reg: BORI8(reg,reg)   "# or\n"   2
+reg: BORU8(reg,reg)   "# or\n"   2
+reg: BXORI8(reg,reg)  "# xor\n"  2
+reg: BXORU8(reg,reg)  "# xor\n"  2
+reg: BCOMI8(reg)      "# notr\n" 1
+reg: BCOMU8(reg)      "# notr\n" 1
+
+rc6: CNSTI8  "%a"  range(a, 0, 63)
+rc6: CNSTU8  "%a"  range(a, 0, 63)
+
+reg: LSHI8(reg,rc6)   "COPY %c %0\nSHLV %c %1\n"   2
+reg: LSHU8(reg,rc6)   "COPY %c %0\nSHLV %c %1\n"   2
+reg: LSHI8(reg,reg)   "# lsh_var\n"  2
+reg: LSHU8(reg,reg)   "# lsh_var\n"  2
+reg: RSHI8(reg,rc6)   "COPY %c %0\nSHRAV %c %1\n"  2
+reg: RSHU8(reg,rc6)   "COPY %c %0\nSHRV %c %1\n"   2
+reg: RSHI8(reg,reg)   "# rsha_var\n" 2
+reg: RSHU8(reg,reg)   "# rshl_var\n" 2
+
+reg: LOADI8(reg)  "COPY %c %0\n"  move(a)
+reg: LOADU8(reg)  "COPY %c %0\n"  move(a)
+reg: LOADP8(reg)  "COPY %c %0\n"  move(a)
+
+reg: CVII8(reg)  "COPY %c %0\n"  move(a)
+reg: CVUI8(reg)  "COPY %c %0\n"  move(a)
+reg: CVIU8(reg)  "COPY %c %0\n"  move(a)
+reg: CVUU8(reg)  "COPY %c %0\n"  move(a)
+reg: CVPU8(reg)  "COPY %c %0\n"  move(a)
+reg: CVUP8(reg)  "COPY %c %0\n"  move(a)
+reg: CVPP8(reg)  "COPY %c %0\n"  move(a)
+
+stmt: EQI8(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"     2
+stmt: EQU8(reg,reg)   "CMPRR %0 %1\nJMPE %a:\n"     2
+stmt: NEI8(reg,reg)   "CMPRR %0 %1\nJMPNE %a:\n"    2
+stmt: NEU8(reg,reg)   "CMPRR %0 %1\nJMPNE %a:\n"    2
+stmt: LTI8(reg,reg)   "CMPRR %0 %1\nJMPLT %a:\n"    2
+stmt: LEI8(reg,reg)   "CMPRR %0 %1\nJMPLE %a:\n"    2
+stmt: GTI8(reg,reg)   "CMPRR %0 %1\nJMPGT %a:\n"    2
+stmt: GEI8(reg,reg)   "CMPRR %0 %1\nJMPGE %a:\n"    2
+stmt: LTU8(reg,reg)   "CMPRR %0 %1\nJMPULT %a:\n"   2
+stmt: LEU8(reg,reg)   "CMPRR %0 %1\nJMPULE %a:\n"   2
+stmt: GTU8(reg,reg)   "CMPRR %0 %1\nJMPUGT %a:\n"   2
+stmt: GEU8(reg,reg)   "CMPRR %0 %1\nJMPUGE %a:\n"   2
+
+reg:  CALLI8(acon)   "CALL %0:\n"   1
+reg:  CALLU8(acon)   "CALL %0:\n"   1
+reg:  CALLP8(acon)   "CALL %0:\n"   1
+reg:  CALLI8(reg)    "CALLR %0\n"   2
+reg:  CALLU8(reg)    "CALLR %0\n"   2
+reg:  CALLP8(reg)    "CALLR %0\n"   2
+
+stmt: RETI8(reg)   "# ret\n"  1
+stmt: RETU8(reg)   "# ret\n"  1
+stmt: RETP8(reg)   "# ret\n"  1
+
+stmt: ARGI8(reg)   "# arg\n"  1
+stmt: ARGU8(reg)   "# arg\n"  1
+stmt: ARGP8(reg)   "# arg\n"  1
 
 stmt: reg  ""
 
@@ -872,9 +1078,9 @@ static void function(Symbol f, Symbol caller[], Symbol callee[], int ncalls) {
     /* Generate code — offset not reset so locals follow param slots */
     gencode(caller, callee);
 
-    /* Ensure maxoffset covers all param frame slots */
-    if (maxoffset < numparams * 4)
-        maxoffset = numparams * 4;
+    /* Ensure maxoffset covers all param frame slots (8 bytes each) */
+    if (maxoffset < numparams * 8)
+        maxoffset = numparams * 8;
 
     /* Count callee-saved registers used */
     usedmask[IREG] &= INTVAR;
@@ -1115,16 +1321,16 @@ static char rcsid[] = "$Id: klacpu.md$";
 /* === THE INTERFACE RECORD === */
 
 Interface klacpuIR = {
-    1, 1, 0,  /* char:       size=1 byte, align=1 byte */
-    4, 4, 0,  /* short:      size=4 bytes (no 16-bit hw; treated as int) */
-    4, 4, 0,  /* int:        size=4 bytes, align=4 bytes */
-    4, 4, 0,  /* long:       size=4 bytes, align=4 bytes */
-    4, 4, 0,  /* longlong:   size=4 bytes (no 64-bit hw; same as long) */
-    4, 4, 1,  /* float:      size=4 bytes, align=4, outofline=1 (no FP hw) */
-    4, 4, 1,  /* double:     size=4 bytes, align=4, outofline=1 */
-    4, 4, 1,  /* longdouble: same */
-    4, 4, 0,  /* T*:         size=4 bytes, align=4 bytes */
-    0, 4, 0,  /* struct:     size=0, align=4 bytes */
+    1, 1, 0,  /* char:       size=1 byte,  align=1 byte  */
+    4, 4, 0,  /* short:      size=4 bytes, align=4 bytes (no 16-bit hw) */
+    8, 8, 0,  /* int:        size=8 bytes, align=8 bytes (native 64-bit word) */
+    8, 8, 0,  /* long:       size=8 bytes, align=8 bytes */
+    8, 8, 0,  /* longlong:   size=8 bytes, align=8 bytes */
+    8, 8, 1,  /* float:      size=8 bytes, align=8, outofline=1 (no FP hw) */
+    8, 8, 1,  /* double:     size=8 bytes, align=8, outofline=1 */
+    8, 8, 1,  /* longdouble: same */
+    8, 8, 0,  /* T*:         size=8 bytes, align=8 bytes */
+    0, 8, 0,  /* struct:     size=0, align=8 bytes */
     0,        /* little_endian = 0 (big-endian byte packing in strings) */
     0,        /* mulops_calls = 0 (hardware mul/div) */
     0,        /* wants_callb = 0 */
