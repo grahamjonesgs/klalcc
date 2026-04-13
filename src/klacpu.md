@@ -323,7 +323,6 @@ enum {
 %term LOADP4=4327
 %term LOADU4=4326
 
-/* === Size-8 terms (sizeof(int)=sizeof(void*)=8) === */
 %term CNSTI8=8213
 %term CNSTP8=8215
 %term CNSTU8=8214
@@ -639,8 +638,6 @@ stmt: ARGP4(reg)       "# arg\n"      1
 
 stmt: ARGB(INDIRB(reg))       "# argb %0\n"      1
 stmt: ASGNB(reg,INDIRB(reg))  "# asgnb %0 %1\n"  1
-
-/* === Size-8 grammar rules (sizeof(int)=sizeof(void*)=8) === */
 
 reg: INDIRI8(VREGP)   "# read register\n"
 reg: INDIRU8(VREGP)   "# read register\n"
