@@ -14,7 +14,10 @@
       "Bash(do build/rcc -target=klacpu $f)",
       "Bash(build/rcc -target=klacpu $f)",
       "Bash(build/rcc -target=klacpu lib/libc.c)",
-      "Read(//Users/gjonesblackcyton/Documents/src/FPGA_CPU_32_DDR_cache/**)"
+      "Read(//Users/gjonesblackcyton/Documents/src/FPGA_CPU_32_DDR_cache/**)",
+      "Read(//Users/gjonesblackcyton/Documents/src/**)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "additionalDirectories": [
       "/tmp"

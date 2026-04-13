@@ -1,6 +1,6 @@
 #line 1 "libc.c"
 
-#line 8 "libc.c"
+#line 9 "libc.c"
 
 
 extern void _uart_tx_hex(int val);
@@ -15,7 +15,7 @@ void _print_neg(int neg, int orig);
 void print_str(char *s);
 
 
-#line 24 "libc.c"
+#line 25 "libc.c"
 
 void putchar(int ch) {
     _uart_tx_char(ch);
@@ -27,7 +27,7 @@ int getchar(void) {
 }
 
 
-#line 37 "libc.c"
+#line 38 "libc.c"
 int getchar_nb(void) {
     return _uart_rx_char_nb();
 }
@@ -49,7 +49,7 @@ void print_str(char *s) {
 }
 
 
-#line 60 "libc.c"
+#line 61 "libc.c"
 
 
 void print_unsigned(unsigned n) {
@@ -71,13 +71,15 @@ void print_int(int n) {
 }
 
 
-#line 82 "libc.c"
+#line 83 "libc.c"
 void _print_neg(int neg, int orig) {
     if (neg < 0) {
 
-        putchar(50); putchar(49); putchar(52); putchar(55);
-        putchar(52); putchar(56); putchar(51); putchar(54);
-        putchar(52); putchar(56);
+        putchar(57); putchar(50); putchar(50); putchar(51);
+        putchar(51); putchar(55); putchar(50); putchar(48);
+        putchar(51); putchar(54); putchar(56); putchar(53);
+        putchar(52); putchar(55); putchar(55); putchar(53);
+        putchar(56); putchar(48); putchar(56);
     } else {
         print_unsigned(neg);
     }
@@ -101,10 +103,10 @@ void newline(void) {
 }
 
 
-#line 115 "libc.c"
+#line 118 "libc.c"
 
 
-#line 119 "libc.c"
+#line 122 "libc.c"
 
 
 int strlen(char *s) {
@@ -140,7 +142,7 @@ char *strcpy(char *dst, char *src) {
 }
 
 
-#line 156 "libc.c"
+#line 159 "libc.c"
 
 
 void *memset(char *dst, int c, int n) {
@@ -170,7 +172,7 @@ void *memcpy(char *dst, char *src, int n) {
 }
 
 
-#line 187 "libc.c"
+#line 190 "libc.c"
 
 
 int abs(int n) {
@@ -198,7 +200,7 @@ void swap(int *a, int *b) {
 }
 
 
-#line 236 "libc.c"
+#line 239 "libc.c"
 
 
 
@@ -208,7 +210,7 @@ static int *_heap_top    = 0;
 static int *_free_head   = 0;
 
 
-#line 246 "libc.c"
+#line 249 "libc.c"
 static void _heap_init(void) {
     int *mem;
     mem          = (int *)0;
@@ -218,7 +220,7 @@ static void _heap_init(void) {
 }
 
 
-#line 258 "libc.c"
+#line 261 "libc.c"
 void *malloc(int size) {
     int *prev;
     int *curr;
@@ -231,7 +233,7 @@ void *malloc(int size) {
     if (size <= 0) return 0;
 
 
-    words = (size + 3) / 4;
+    words = (size + 7) / 8;
 
 
     prev = 0;
@@ -277,7 +279,7 @@ void *malloc(int size) {
 }
 
 
-#line 318 "libc.c"
+#line 321 "libc.c"
 void free(void *ptr) {
     int *blk;
     int *prev;
@@ -322,7 +324,7 @@ void free(void *ptr) {
 }
 
 
-#line 363 "libc.c"
+#line 366 "libc.c"
 void *calloc(int nmemb, int size) {
     int   total;
     void *ptr;
@@ -336,7 +338,7 @@ void *calloc(int nmemb, int size) {
 }
 
 
-#line 381 "libc.c"
+#line 384 "libc.c"
 void *realloc(void *ptr, int new_size) {
     int  *blk;
     int   old_words;
@@ -348,18 +350,18 @@ void *realloc(void *ptr, int new_size) {
 
     blk       = (int *)ptr - 3;
     old_words = blk[0];
-    new_words = (new_size + 3) / 4;
+    new_words = (new_size + 7) / 8;
     if (new_words <= old_words) return ptr;
 
     new_ptr = malloc(new_size);
     if (new_ptr == 0) return 0;
-    memcpy((char *)new_ptr, (char *)ptr, old_words * 4);
+    memcpy((char *)new_ptr, (char *)ptr, old_words * 8);
     free(ptr);
     return new_ptr;
 }
 
 
-#line 405 "libc.c"
+#line 408 "libc.c"
 int heap_words_used(void) {
     int *mem;
     int *blk;
@@ -378,7 +380,7 @@ int heap_words_used(void) {
 }
 
 
-#line 424 "libc.c"
+#line 427 "libc.c"
 int heap_get_top(void) {
     return (int)_heap_top;
 }
