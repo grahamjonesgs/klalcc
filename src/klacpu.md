@@ -3,14 +3,18 @@
  * lcc backend for FPGA_CPU_64_DDR_cache
  *
  * Byte-addressed CPU (CHAR_BIT=8). All registers are 64-bit.
- * sizeof(char)=1, sizeof(short)=sizeof(int)=sizeof(long)=sizeof(T*)=4.
+ * sizeof(char)=1, sizeof(short)=4, sizeof(int)=sizeof(long)=sizeof(T*)=8.
  * Each spill/frame slot is 8 bytes (one 64-bit register).
  *
  * Memory instructions:
- *   MEMGET8  dst src  — load 1 byte (zero-extended) from byte address in src
- *   MEMSET8  src dst  — store low byte of src to byte address in dst
- *   MEMGET64 dst src  — load 8-byte word from byte address in src into dst
- *   MEMSET64 src dst  — store 8-byte word to byte address in dst
+ *   MEMGET8   dst src      — load 1 byte (zero-extended) from byte address in src
+ *   MEMSET8   src dst      — store low byte of src to byte address in dst
+ *   MEMGET64  dst src      — load 8-byte word from byte address in src into dst
+ *   MEMSET64  src dst      — store 8-byte word to byte address in dst
+ *   LDIDX32   dst base off — load 4-byte word from [base+off] (zero-extended) into dst
+ *   STIDX32   src base off — store low 4 bytes of src to [base+off]
+ *   LDIDX64   dst base off — load 8-byte word from [base+off] into dst
+ *   STIDX64   src base off — store 8-byte word to [base+off]
  *
  * Register convention:
  *   A-D  (0-3)   argument passing, caller-saved temps
@@ -22,14 +26,14 @@
  *   P    (15)    frame pointer (FP)
  *
  * Stack: hardware DDR2 stack (PUSH/POP/GETSP/SETSP/ADDSP).
- *        SP is not in a GPR; ADDSP takes byte count; STIDX/LDIDX take byte offsets.
+ *        SP is not in a GPR; ADDSP takes byte count; STIDX64/LDIDX64 take byte offsets.
  *
  * Frame layout (byte offsets from FP, FP set after PUSH P / GETSP P):
- *   [FP+0]        saved old FP (PUSH P)
- *   [FP+4]        return address (CALL)
- *   [FP+8+i*4]    overflow arg i (i >= 4, caller placed on stack)
- *   [FP-4]..[FP-maxoffset]    locals and spills
- *   [FP-(maxoffset+4)]..[FP-(maxoffset+saved*4)]  callee-saved regs
+ *   [FP+0]          saved old FP (PUSH P, 8 bytes)
+ *   [FP+8]          return address (CALL, 8 bytes)
+ *   [FP+16+i*8]     overflow arg i (i >= 4, caller placed on stack)
+ *   [FP-8]..[FP-maxoffset]    locals and spills (8-byte slots)
+ *   [FP-(maxoffset+8)]..[FP-(maxoffset+saved*8)]  callee-saved regs
  */
 
 #define INTTMP 0x00004F0F  /* A-D(0-3), I-L(8-11), O(14) as temps */
@@ -460,16 +464,16 @@ reg: ADDRLP4  "# addr LP\n"  2
 reg: INDIRI1(reg)     "MEMGET8 %c %0\n"   1
 reg: INDIRU1(reg)     "MEMGET8 %c %0\n"   1
 
-reg: INDIRI4(reg)     "MEMGET64 %c %0\n"   1
-reg: INDIRU4(reg)     "MEMGET64 %c %0\n"   1
-reg: INDIRP4(reg)     "MEMGET64 %c %0\n"   1
+reg: INDIRI4(reg)     "LDIDX32 %c %0 0\n"  1
+reg: INDIRU4(reg)     "LDIDX32 %c %0 0\n"  1
+reg: INDIRP4(reg)     "LDIDX32 %c %0 0\n"  1
 
 stmt: ASGNI1(reg,reg)  "MEMSET8 %1 %0\n"   1
 stmt: ASGNU1(reg,reg)  "MEMSET8 %1 %0\n"   1
 
-stmt: ASGNI4(reg,reg)  "MEMSET64 %1 %0\n"  1
-stmt: ASGNU4(reg,reg)  "MEMSET64 %1 %0\n"  1
-stmt: ASGNP4(reg,reg)  "MEMSET64 %1 %0\n"  1
+stmt: ASGNI4(reg,reg)  "STIDX32 %1 %0 0\n" 1
+stmt: ASGNU4(reg,reg)  "STIDX32 %1 %0 0\n" 1
+stmt: ASGNP4(reg,reg)  "STIDX32 %1 %0 0\n" 1
 
 reg: ADDI1(reg,reg)    "# add\n"  2
 reg: ADDU1(reg,reg)    "# add\n"  2
@@ -1271,13 +1275,15 @@ static void defaddress(Symbol p) {
 static void defstring(int n, char *str) {
     int i, j;
     unsigned long word;
-    /* Pack 8 bytes big-endian into each 64-bit word.
-     * "ABCDEFGH" -> 0x4142434445464748.  Final word is zero-padded.
-     * Null terminator is included in n by lcc. */
+    /* Pack 8 bytes little-endian into each 64-bit word.
+     * "ABCDEFGH" -> 0x4847464544434241.  Final word is zero-padded.
+     * Null terminator is included in n by lcc.
+     * MEMGET8 reads byte_lane N as bits[N*8+7:N*8], so str[0] must be
+     * at bits[7:0] (the least-significant byte). */
     for (i = 0; i < n; i += 8) {
         word = 0;
         for (j = 0; j < 8; j++) {
-            word = (word << 8) | (i+j < n ? (unsigned char)str[i+j] : 0u);
+            word |= (unsigned long)(i+j < n ? (unsigned char)str[i+j] : 0u) << (j * 8);
         }
         print(".word 0x%X\n", word);
     }
@@ -1384,7 +1390,7 @@ Interface klacpuIR = {
     8, 8, 1,  /* longdouble: same */
     8, 8, 0,  /* T*:         size=8 bytes, align=8 bytes */
     0, 8, 0,  /* struct:     size=0, align=8 bytes */
-    0,        /* little_endian = 0 (big-endian byte packing in strings) */
+    1,        /* little_endian = 1 (little-endian byte packing in strings) */
     0,        /* mulops_calls = 0 (hardware mul/div) */
     0,        /* wants_callb = 0 */
     1,        /* wants_argb = 1 */
